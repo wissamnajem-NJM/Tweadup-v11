@@ -44,7 +44,7 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
 
         // Calculer la progression
         const [totalLessons] = await pool.query(`
-            SELECT COUNT(*) as total FROM lessons WHERE formation_id = ?
+            SELECT COUNT(*) as total FROM tweadup_lessons WHERE formation_id = ?
         `, [formationId]);
 
         const [completedLessons] = await pool.query(`

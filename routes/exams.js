@@ -9,7 +9,7 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
         // D'abord trouver le module de cette formation
         const [modules] = await pool.query(`
-            SELECT id FROM modules WHERE formation_id = ? LIMIT 1
+            SELECT id FROM tweadup_modules WHERE formation_id = ? LIMIT 1
         `, [req.params.formationId]);
 
         if (modules.length === 0) {
@@ -19,7 +19,7 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
         const moduleId = modules[0].id;
 
         const [quizzes] = await pool.query(`
-            SELECT * FROM quizzes WHERE module_id = ? AND is_published = 1
+            SELECT * FROM tweadup_quizzes WHERE module_id = ? AND is_published = 1
         `, [moduleId]);
 
         if (quizzes.length === 0) {
@@ -30,7 +30,7 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
 
         // Recuperer les questions
         const [questions] = await pool.query(`
-            SELECT * FROM quiz_questions 
+            SELECT * FROM tweadup_quiz_questions 
             WHERE quiz_id = ?
             ORDER BY sort_order ASC, id ASC
         `, [quiz.id]);
@@ -40,7 +40,7 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
             questions.map(async (q) => {
                 const [answers] = await pool.query(`
                     SELECT id, answer_text as text, is_correct, sort_order
-                    FROM quiz_answers 
+                    FROM tweadup_quiz_answers 
                     WHERE question_id = ?
                     ORDER BY sort_order ASC, id ASC
                 `, [q.id]);
@@ -88,14 +88,14 @@ router.post('/submit', verifyToken, async (req, res) => {
 
         for (const [questionId, selectedAnswerId] of Object.entries(answers)) {
             const [questionData] = await pool.query(`
-                SELECT points FROM quiz_questions WHERE id = ?
+                SELECT points FROM tweadup_quiz_questions WHERE id = ?
             `, [questionId]);
 
             const points = questionData[0]?.points || 1;
             totalPoints += points;
 
             const [correctAnswers] = await pool.query(`
-                SELECT * FROM quiz_answers 
+                SELECT * FROM tweadup_quiz_answers 
                 WHERE question_id = ? AND is_correct = true
             `, [questionId]);
 
@@ -109,14 +109,14 @@ router.post('/submit', verifyToken, async (req, res) => {
 
         // Enregistrer la tentative
         await pool.query(`
-            INSERT INTO quiz_attempts (user_id, quiz_id, score, passed, completed_at)
+            INSERT INTO tweadup_quiz_attempts (user_id, quiz_id, score, passed, completed_at)
             VALUES (?, ?, ?, ?, NOW())
         `, [req.userId, quizId, percentage, passed]);
 
         // Si reussi, generer certificat
         if (passed) {
             await pool.query(`
-                INSERT INTO certificates (user_id, formation_id, issued_at, status)
+                INSERT INTO tweadup_certificates (user_id, formation_id, issued_at, status)
                 VALUES (?, ?, NOW(), 'issued')
                 ON DUPLICATE KEY UPDATE issued_at = NOW(), status = 'issued'
             `, [req.userId, formationId]);

@@ -23,7 +23,7 @@ router.post('/register', [
 
     try {
         // Verifier si l'email existe deja
-        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+        const [existing] = await pool.query('SELECT id FROM tweadup_users WHERE email = ?', [email]);
         if (existing.length > 0) {
             console.log('Email deja utilise:', email);
             return res.status(400).json({ message: 'Cet email est deja utilise.' });
@@ -35,7 +35,7 @@ router.post('/register', [
 
         // Creer l'utilisateur - adaptation à ta structure de table
         const [result] = await pool.query(
-            `INSERT INTO users (first_name, last_name, email, password, role_id, is_active, is_verified, created_at, updated_at) 
+            `INSERT INTO tweadup_users (first_name, last_name, email, password, role_id, is_active, is_verified, created_at, updated_at) 
              VALUES (?, ?, ?, ?, 3, 1, 0, NOW(), NOW())`,
             [first_name, last_name, email, hashedPassword]
         );
@@ -73,7 +73,7 @@ router.post('/login', [
     console.log('Tentative connexion:', email);
 
     try {
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const [users] = await pool.query('SELECT * FROM tweadup_users WHERE email = ?', [email]);
         if (users.length === 0) {
             console.log('Utilisateur non trouve:', email);
             return res.status(401).json({ message: 'Email ou mot de passe incorrect.' });
@@ -119,7 +119,7 @@ router.get('/profile', async (req, res) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tweadup_secret_key_2024');
         const [users] = await pool.query(
-            'SELECT id, first_name, last_name, email, role_id, avatar, bio, created_at FROM users WHERE id = ?',
+            'SELECT id, first_name, last_name, email, role_id, avatar, bio, created_at FROM tweadup_users WHERE id = ?',
             [decoded.userId]
         );
 

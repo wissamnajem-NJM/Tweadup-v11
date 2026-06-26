@@ -10,7 +10,7 @@ router.get('/my', verifyToken, async (req, res) => {
         const [certificates] = await pool.query(`
             SELECT c.*, f.title as formation_title, f.image as formation_image,
                    u.first_name, u.last_name
-            FROM certificates c
+            FROM tweadup_certificates c
             JOIN formations f ON c.formation_id = f.id
             JOIN users u ON c.user_id = u.id
             WHERE c.user_id = ?
@@ -28,7 +28,7 @@ router.get('/:formationId', verifyToken, async (req, res) => {
         const [certificates] = await pool.query(`
             SELECT c.*, f.title as formation_title, f.description,
                    u.first_name, u.last_name, u.email
-            FROM certificates c
+            FROM tweadup_certificates c
             JOIN formations f ON c.formation_id = f.id
             JOIN users u ON c.user_id = u.id
             WHERE c.user_id = ? AND c.formation_id = ?
