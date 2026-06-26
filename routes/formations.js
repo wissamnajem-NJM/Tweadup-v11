@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
     try {
         const [formations] = await pool.query(`
             SELECT f.*, c.name as category_name, c.color as category_color
-            FROM tweadup_formations f
+            FROM formations f
             LEFT JOIN categories c ON f.category_id = c.id
             ORDER BY f.created_at DESC
         `);
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
         const formationsWithCounts = await Promise.all(
             formations.map(async (formation) => {
                 const [lessonsCount] = await pool.query(
-                    'SELECT COUNT(*) as count FROM tweadup_lessons WHERE formation_id = ?',
+                    'SELECT COUNT(*) as count FROM lessons WHERE formation_id = ?',
                     [formation.id]
                 );
                 const [enrollCount] = await pool.query(
@@ -45,7 +45,7 @@ router.get('/:id', async (req, res) => {
     try {
         const [formations] = await pool.query(`
             SELECT f.*, c.name as category_name, c.color as category_color
-            FROM tweadup_formations f
+            FROM formations f
             LEFT JOIN categories c ON f.category_id = c.id
             WHERE f.id = ?
         `, [req.params.id]);
@@ -55,13 +55,13 @@ router.get('/:id', async (req, res) => {
         }
 
         const [lessons] = await pool.query(`
-            SELECT * FROM tweadup_lessons 
+            SELECT * FROM lessons 
             WHERE formation_id = ? 
             ORDER BY sort_order ASC, id ASC
         `, [req.params.id]);
 
         const [quizzes] = await pool.query(`
-            SELECT * FROM tweadup_quizzes 
+            SELECT * FROM quizzes 
             WHERE formation_id = ?
         `, [req.params.id]);
 
