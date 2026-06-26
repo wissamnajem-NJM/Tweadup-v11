@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tweadup - Tableau de bord</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/dashboard" class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <span>Tweadup</span>
+            </a>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard" class="active"><i class="fas fa-home"></i> Accueil</a>
+            <a href="/catalogue"><i class="fas fa-book"></i> Catalogue</a>
+            <a href="/profile"><i class="fas fa-user"></i> Profil</a>
+        </div>
+        <div class="nav-user">
+            <div class="user-menu" onclick="toggleUserMenu()">
+                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="Avatar">
+                <span id="userName">Utilisateur</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="dropdown-menu" id="userDropdown">
+                <a href="/profile"><i class="fas fa-user"></i> Mon profil</a>
+                <a href="/catalogue"><i class="fas fa-book"></i> Mes formations</a>
+                <div class="dropdown-divider"></div>
+                <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="dashboard-header">
+            <div class="welcome-section">
+                <h1>Bonjour, <span id="welcomeName">Utilisateur</span> ! 👋</h1>
+                <p>Continuez votre apprentissage là où vous vous êtes arrêté.</p>
+            </div>
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #dbeafe; color: #2563eb;">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statFormations">0</span>
+                        <span class="stat-label">Formations</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #dcfce7; color: #16a34a;">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statCompleted">0</span>
+                        <span class="stat-label">Terminées</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #fef3c7; color: #d97706;">
+                        <i class="fas fa-certificate"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statCertificates">0</span>
+                        <span class="stat-label">Certificats</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #fce7f3; color: #db2777;">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="statHours">0h</span>
+                        <span class="stat-label">Heures</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Continue Learning -->
+        <section class="section" id="continueSection" style="display: none;">
+            <div class="section-header">
+                <h2><i class="fas fa-play-circle"></i> Continuer l'apprentissage</h2>
+            </div>
+            <div class="continue-grid" id="continueGrid"></div>
+        </section>
+
+        <!-- My Formations -->
+        <section class="section" id="myFormationsSection" style="display: none;">
+            <div class="section-header">
+                <h2><i class="fas fa-graduation-cap"></i> Mes formations</h2>
+                <a href="/catalogue" class="btn btn-outline btn-sm">Voir tout</a>
+            </div>
+            <div class="formations-grid" id="myFormationsGrid"></div>
+        </section>
+
+        <!-- Certificates -->
+        <section class="section" id="certificatesSection" style="display: none;">
+            <div class="section-header">
+                <h2><i class="fas fa-award"></i> Mes certificats</h2>
+            </div>
+            <div class="certificates-grid" id="certificatesGrid"></div>
+        </section>
+
+        <!-- Recommended -->
+        <section class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-star"></i> Recommandé pour vous</h2>
+                <a href="/catalogue" class="btn btn-outline btn-sm">Explorer le catalogue</a>
+            </div>
+            <div class="formations-grid" id="recommendedGrid"></div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/js/main.js"></script>
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

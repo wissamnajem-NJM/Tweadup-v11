@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tweadup - Mon Profil</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/dashboard" class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <span>Tweadup</span>
+            </a>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard"><i class="fas fa-home"></i> Accueil</a>
+            <a href="/catalogue"><i class="fas fa-book"></i> Catalogue</a>
+            <a href="/profile" class="active"><i class="fas fa-user"></i> Profil</a>
+        </div>
+        <div class="nav-user">
+            <div class="user-menu" onclick="toggleUserMenu()">
+                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="Avatar">
+                <span id="userName">Utilisateur</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="dropdown-menu" id="userDropdown">
+                <a href="/profile"><i class="fas fa-user"></i> Mon profil</a>
+                <a href="/catalogue"><i class="fas fa-book"></i> Mes formations</a>
+                <div class="dropdown-divider"></div>
+                <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="profile-container">
+            <div class="profile-header">
+                <div class="profile-avatar-section">
+                    <img id="profileAvatar" src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff&size=150" alt="Avatar">
+                    <div class="profile-info">
+                        <h1 id="profileName">Utilisateur</h1>
+                        <p id="profileEmail">email@example.com</p>
+                        <span class="profile-role" id="profileRole">Étudiant</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-sidebar">
+                    <div class="profile-card">
+                        <h3>Statistiques</h3>
+                        <div class="profile-stats">
+                            <div class="profile-stat">
+                                <span class="stat-number" id="profileFormations">0</span>
+                                <span class="stat-label">Formations</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span class="stat-number" id="profileCompleted">0</span>
+                                <span class="stat-label">Terminées</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span class="stat-number" id="profileCertificates">0</span>
+                                <span class="stat-label">Certificats</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-main">
+                    <div class="profile-card">
+                        <h3>Informations personnelles</h3>
+                        <form id="profileForm" class="profile-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Prénom</label>
+                                    <input type="text" id="editFirstName" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Nom</label>
+                                    <input type="text" id="editLastName" readonly>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="editEmail" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Membre depuis</label>
+                                <input type="text" id="editMemberSince" readonly>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="profile-card" id="myFormationsCard">
+                        <h3>Mes formations</h3>
+                        <div class="formations-list" id="profileFormationsList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/js/main.js"></script>
+    <script src="/js/profile.js"></script>
+</body>
+</html>

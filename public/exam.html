@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tweadup - Examen Final</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="/dashboard" class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <span>Tweadup</span>
+            </a>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard"><i class="fas fa-home"></i> Accueil</a>
+            <a href="/catalogue"><i class="fas fa-book"></i> Catalogue</a>
+            <a href="/profile"><i class="fas fa-user"></i> Profil</a>
+        </div>
+        <div class="nav-user">
+            <div class="user-menu" onclick="toggleUserMenu()">
+                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="Avatar">
+                <span id="userName">Utilisateur</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="dropdown-menu" id="userDropdown">
+                <a href="/profile"><i class="fas fa-user"></i> Mon profil</a>
+                <a href="/catalogue"><i class="fas fa-book"></i> Mes formations</a>
+                <div class="dropdown-divider"></div>
+                <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="exam-container" id="examContainer">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Chargement de l'examen...</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/js/main.js"></script>
+    <script src="/js/exam.js"></script>
+</body>
+</html>
