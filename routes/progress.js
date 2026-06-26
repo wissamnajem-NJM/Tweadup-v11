@@ -1,61 +1,115 @@
 const express = require('express');
-const pool = require('../config/db');
+const supabase = require('../config/db');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// POST marquer une lecon comme terminee
 router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
     try {
         const { formationId } = req.body;
 
-        const enrollmentResult = await pool.query(`
-            SELECT * FROM enrollments WHERE user_id = $1 AND formation_id = $2
-        `, [req.userId, formationId]);
+        // Verifier si l'inscription existe
+        const { data: enrollment, error: eError } = await supabase
+            .from('enrollments')
+            .select('*')
+            .eq('user_id', req.userId)
+            .eq('formation_id', formationId);
+
+        if (eError) throw eError;
 
         let enrollmentId;
-        if (enrollmentResult.rows.length === 0) {
-            const insertResult = await pool.query(`
-                INSERT INTO enrollments (user_id, formation_id, progress_percent, status, created_at, last_accessed_at, started_at, completed_lessons, total_lessons, total_time_spent)
-                VALUES ($1, $2, 0, 'active', NOW(), NOW(), NOW(), 0, 0, 0)
-                RETURNING id
-            `, [req.userId, formationId]);
-            enrollmentId = insertResult.rows[0].id;
+        if (!enrollment || enrollment.length === 0) {
+            // Creer l'inscription
+            const { data: newEnrollment, error: insertError } = await supabase
+                .from('enrollments')
+                .insert([{
+                    user_id: req.userId,
+                    formation_id: formationId,
+                    progress_percent: 0,
+                    status: 'active',
+                    created_at: new Date().toISOString(),
+                    last_accessed_at: new Date().toISOString(),
+                    started_at: new Date().toISOString(),
+                    completed_lessons: 0,
+                    total_lessons: 0,
+                    total_time_spent: 0
+                }])
+                .select();
+
+            if (insertError) throw insertError;
+            enrollmentId = newEnrollment[0].id;
         } else {
-            enrollmentId = enrollmentResult.rows[0].id;
+            enrollmentId = enrollment[0].id;
         }
 
-        const existingResult = await pool.query(`
-            SELECT * FROM lesson_progress 
-            WHERE user_id = $1 AND lesson_id = $2
-        `, [req.userId, req.params.lessonId]);
+        // Verifier si la lecon est deja terminee
+        const { data: existing, error: exError } = await supabase
+            .from('lesson_progress')
+            .select('*')
+            .eq('user_id', req.userId)
+            .eq('lesson_id', req.params.lessonId);
 
-        if (existingResult.rows.length > 0) {
-            return res.json({ message: 'Lecon deja terminee', progress: enrollmentResult.rows[0]?.progress_percent || 0 });
+        if (exError) throw exError;
+
+        if (existing && existing.length > 0) {
+            return res.json({ 
+                message: 'Lecon deja terminee', 
+                progress: enrollment[0]?.progress_percent || 0 
+            });
         }
 
-        await pool.query(`
-            INSERT INTO lesson_progress (user_id, lesson_id, formation_id, enrollment_id, is_completed, completed_at, created_at, updated_at, watch_time, last_position)
-            VALUES ($1, $2, $3, $4, true, NOW(), NOW(), NOW(), 0, 0)
-        `, [req.userId, req.params.lessonId, formationId, enrollmentId]);
+        // Marquer la lecon comme terminee
+        const { error: lpError } = await supabase
+            .from('lesson_progress')
+            .insert([{
+                user_id: req.userId,
+                lesson_id: req.params.lessonId,
+                formation_id: formationId,
+                enrollment_id: enrollmentId,
+                is_completed: true,
+                completed_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                watch_time: 0,
+                last_position: 0
+            }]);
 
-        const totalResult = await pool.query(`
-            SELECT COUNT(*) as total FROM lessons WHERE formation_id = $1
-        `, [formationId]);
+        if (lpError) throw lpError;
 
-        const completedResult = await pool.query(`
-            SELECT COUNT(*) as completed FROM lesson_progress 
-            WHERE user_id = $1 AND formation_id = $2 AND is_completed = true
-        `, [req.userId, formationId]);
+        // Calculer la progression
+        const { data: totalLessons, error: tlError } = await supabase
+            .from('lessons')
+            .select('id')
+            .eq('formation_id', formationId);
 
-        const totalLessons = parseInt(totalResult.rows[0].total);
-        const completedLessons = parseInt(completedResult.rows[0].completed);
-        const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+        if (tlError) throw tlError;
 
-        await pool.query(`
-            UPDATE enrollments 
-            SET progress_percent = $1, completed_lessons = $2, last_accessed_at = NOW() 
-            WHERE user_id = $3 AND formation_id = $4
-        `, [progressPercent, completedLessons, req.userId, formationId]);
+        const { data: completedLessons, error: clError } = await supabase
+            .from('lesson_progress')
+            .select('id')
+            .eq('user_id', req.userId)
+            .eq('formation_id', formationId)
+            .eq('is_completed', true);
+
+        if (clError) throw clError;
+
+        const totalCount = totalLessons ? totalLessons.length : 0;
+        const completedCount = completedLessons ? completedLessons.length : 0;
+        const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+        // Mettre a jour la progression
+        const { error: upError } = await supabase
+            .from('enrollments')
+            .update({
+                progress_percent: progressPercent,
+                completed_lessons: completedCount,
+                last_accessed_at: new Date().toISOString()
+            })
+            .eq('user_id', req.userId)
+            .eq('formation_id', formationId);
+
+        if (upError) throw upError;
 
         res.json({ 
             message: 'Lecon terminee !',
@@ -67,23 +121,39 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
     }
 });
 
+// POST s'inscrire a une formation
 router.post('/enroll', verifyToken, async (req, res) => {
     const { formationId } = req.body;
 
     try {
-        const existingResult = await pool.query(
-            'SELECT * FROM enrollments WHERE user_id = $1 AND formation_id = $2',
-            [req.userId, formationId]
-        );
+        const { data: existing, error: eError } = await supabase
+            .from('enrollments')
+            .select('*')
+            .eq('user_id', req.userId)
+            .eq('formation_id', formationId);
 
-        if (existingResult.rows.length > 0) {
+        if (eError) throw eError;
+
+        if (existing && existing.length > 0) {
             return res.json({ message: 'Vous etes deja inscrit.', alreadyEnrolled: true });
         }
 
-        await pool.query(`
-            INSERT INTO enrollments (user_id, formation_id, progress_percent, status, created_at, last_accessed_at, started_at, completed_lessons, total_lessons, total_time_spent)
-            VALUES ($1, $2, 0, 'active', NOW(), NOW(), NOW(), 0, 0, 0)
-        `, [req.userId, formationId]);
+        const { error: insertError } = await supabase
+            .from('enrollments')
+            .insert([{
+                user_id: req.userId,
+                formation_id: formationId,
+                progress_percent: 0,
+                status: 'active',
+                created_at: new Date().toISOString(),
+                last_accessed_at: new Date().toISOString(),
+                started_at: new Date().toISOString(),
+                completed_lessons: 0,
+                total_lessons: 0,
+                total_time_spent: 0
+            }]);
+
+        if (insertError) throw insertError;
 
         res.json({ message: 'Inscription reussie !' });
     } catch (err) {
@@ -92,36 +162,48 @@ router.post('/enroll', verifyToken, async (req, res) => {
     }
 });
 
+// GET progression de l'utilisateur
 router.get('/my', verifyToken, async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT p.*, f.title as formation_title, f.image as formation_image
-            FROM enrollments p
-            JOIN formations f ON p.formation_id = f.id
-            WHERE p.user_id = $1
-        `, [req.userId]);
-        res.json({ progress: result.rows });
+        const { data: progress, error } = await supabase
+            .from('enrollments')
+            .select(`
+                *,
+                formations:formation_id (title, image_url)
+            `)
+            .eq('user_id', req.userId);
+
+        if (error) throw error;
+
+        res.json({ progress: progress || [] });
     } catch (err) {
         console.error('ERREUR progression:', err);
         res.status(500).json({ message: 'Erreur: ' + err.message });
     }
 });
 
+// GET progression d'une formation specifique
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        const progressResult = await pool.query(`
-            SELECT * FROM enrollments 
-            WHERE user_id = $1 AND formation_id = $2
-        `, [req.userId, req.params.formationId]);
+        const { data: progress, error: pError } = await supabase
+            .from('enrollments')
+            .select('*')
+            .eq('user_id', req.userId)
+            .eq('formation_id', req.params.formationId);
 
-        const lessonResult = await pool.query(`
-            SELECT * FROM lesson_progress 
-            WHERE user_id = $1 AND formation_id = $2
-        `, [req.userId, req.params.formationId]);
+        if (pError) throw pError;
+
+        const { data: lessonProgress, error: lpError } = await supabase
+            .from('lesson_progress')
+            .select('*')
+            .eq('user_id', req.userId)
+            .eq('formation_id', req.params.formationId);
+
+        if (lpError) throw lpError;
 
         res.json({ 
-            enrollment: progressResult.rows[0] || null, 
-            lessonProgress: lessonResult.rows 
+            enrollment: progress && progress.length > 0 ? progress[0] : null, 
+            lessonProgress: lessonProgress || [] 
         });
     } catch (err) {
         console.error('ERREUR progression formation:', err);

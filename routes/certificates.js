@@ -1,43 +1,55 @@
 const express = require('express');
-const pool = require('../config/db');
+const supabase = require('../config/db');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// GET certificats de l'utilisateur
 router.get('/my', verifyToken, async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT c.*, f.title as formation_title, f.image as formation_image,
-                   u.first_name, u.last_name
-            FROM certificates c
-            JOIN formations f ON c.formation_id = f.id
-            JOIN users u ON c.user_id = u.id
-            WHERE c.user_id = $1
-            ORDER BY c.issued_at DESC
-        `, [req.userId]);
-        res.json({ certificates: result.rows });
+        const { data: certificates, error } = await supabase
+            .from('certificates')
+            .select(`
+                *,
+                formations:formation_id (title, image_url),
+                users:user_id (first_name, last_name)
+            `)
+            .eq('user_id', req.userId)
+            .order('issued_at', { ascending: false });
+
+        if (error) throw error;
+
+        res.json({ certificates: certificates || [] });
     } catch (err) {
+        console.error('ERREUR certificats:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 });
 
+// GET un certificat spécifique
 router.get('/:formationId', verifyToken, async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT c.*, f.title as formation_title, f.description,
-                   u.first_name, u.last_name, u.email
-            FROM certificates c
-            JOIN formations f ON c.formation_id = f.id
-            JOIN users u ON c.user_id = u.id
-            WHERE c.user_id = $1 AND c.formation_id = $2
-        `, [req.userId, req.params.formationId]);
+        const { data: certificates, error } = await supabase
+            .from('certificates')
+            .select(`
+                *,
+                formations:formation_id (title, description),
+                users:user_id (first_name, last_name, email)
+            `)
+            .eq('user_id', req.userId)
+            .eq('formation_id', req.params.formationId);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Certificat non trouvé' });
+        if (error) throw error;
+
+        if (!certificates || certificates.length === 0) {
+            return res.status(404).json({ message: 'Certificat non trouve' });
         }
 
-        res.json({ certificate: result.rows[0] });
+        res.json({ certificate: certificates[0] });
+
+    // BUG CORRIGE : catch unique et bien formé + fermeture du router.get
     } catch (err) {
+        console.error('ERREUR certificat:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 });

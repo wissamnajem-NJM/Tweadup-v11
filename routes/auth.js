@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const pool = require('../config/db');
+const supabase = require('../config/db');
 
 const router = express.Router();
 
@@ -23,8 +23,14 @@ router.post('/register', [
 
     try {
         // Verifier si l'email existe deja
-        const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-        if (result.rows.length > 0) {
+        const { data: existing, error: checkError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', email);
+
+        if (checkError) throw checkError;
+
+        if (existing && existing.length > 0) {
             console.log('Email deja utilise:', email);
             return res.status(400).json({ message: 'Cet email est deja utilise.' });
         }
@@ -34,12 +40,22 @@ router.post('/register', [
         console.log('Mot de passe hashe');
 
         // Creer l'utilisateur
-        const insertResult = await pool.query(
-            `INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at) 
-             VALUES ($1, $2, $3, $4, 'student', NOW(), NOW()) RETURNING id`,
-            [first_name, last_name, email, hashedPassword]
-        );
-        const userId = insertResult.rows[0].id;
+        const { data, error } = await supabase
+            .from('users')
+            .insert([{ 
+                first_name, 
+                last_name, 
+                email, 
+                password: hashedPassword, 
+                role: 'student',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }])
+            .select();
+
+        if (error) throw error;
+
+        const userId = data[0].id;
         console.log('Utilisateur cree, ID:', userId);
 
         // Generer le token
@@ -74,13 +90,19 @@ router.post('/login', [
     console.log('Tentative connexion:', email);
 
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        if (result.rows.length === 0) {
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email);
+
+        if (error) throw error;
+
+        if (!users || users.length === 0) {
             console.log('Utilisateur non trouve:', email);
             return res.status(401).json({ message: 'Email ou mot de passe incorrect.' });
         }
 
-        const user = result.rows[0];
+        const user = users[0];
         const isMatch = await bcrypt.compare(password, user.password);
         console.log('Mot de passe correspond:', isMatch);
 
@@ -119,16 +141,19 @@ router.get('/profile', async (req, res) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_2024');
-        const result = await pool.query(
-            'SELECT id, first_name, last_name, email, role, avatar_url, created_at FROM users WHERE id = $1',
-            [decoded.userId]
-        );
+        
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('id, first_name, last_name, email, role, avatar_url, created_at')
+            .eq('id', decoded.userId);
 
-        if (result.rows.length === 0) {
+        if (error) throw error;
+
+        if (!users || users.length === 0) {
             return res.status(404).json({ message: 'Utilisateur non trouve' });
         }
 
-        res.json({ user: result.rows[0] });
+        res.json({ user: users[0] });
     } catch (err) {
         res.status(403).json({ message: 'Token invalide' });
     }
