@@ -23,8 +23,8 @@ router.post('/register', [
 
     try {
         // Verifier si l'email existe deja
-        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-        if (existing.length > 0) {
+        const result = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+        if (result.rows.length > 0) {
             console.log('Email deja utilise:', email);
             return res.status(400).json({ message: 'Cet email est deja utilise.' });
         }
@@ -33,17 +33,18 @@ router.post('/register', [
         const hashedPassword = await bcrypt.hash(password, 10);
         console.log('Mot de passe hashe');
 
-        // Creer l'utilisateur - adaptation à ta structure de table
-        const [result] = await pool.query(
-           `INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at) 
- VALUES (?, ?, ?, ?, 'student', NOW(), NOW())`,
+        // Creer l'utilisateur
+        const insertResult = await pool.query(
+            `INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at) 
+             VALUES ($1, $2, $3, $4, 'student', NOW(), NOW()) RETURNING id`,
             [first_name, last_name, email, hashedPassword]
         );
-        console.log('Utilisateur cree, ID:', result.insertId);
+        const userId = insertResult.rows[0].id;
+        console.log('Utilisateur cree, ID:', userId);
 
         // Generer le token
         const token = jwt.sign(
-            { userId: result.insertId, email, role: 3 },
+            { userId: userId, email, role: 'student' },
             process.env.JWT_SECRET || 'secret_key_2024',
             { expiresIn: '24h' }
         );
@@ -51,7 +52,7 @@ router.post('/register', [
         res.status(201).json({
             message: 'Compte cree avec succes !',
             token,
-            user: { id: result.insertId, first_name, last_name, email, role: 3 }
+            user: { id: userId, first_name, last_name, email, role: 'student' }
         });
     } catch (err) {
         console.error('ERREUR INSCRIPTION:', err);
@@ -73,13 +74,13 @@ router.post('/login', [
     console.log('Tentative connexion:', email);
 
     try {
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (users.length === 0) {
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (result.rows.length === 0) {
             console.log('Utilisateur non trouve:', email);
             return res.status(401).json({ message: 'Email ou mot de passe incorrect.' });
         }
 
-        const user = users[0];
+        const user = result.rows[0];
         const isMatch = await bcrypt.compare(password, user.password);
         console.log('Mot de passe correspond:', isMatch);
 
@@ -102,7 +103,7 @@ router.post('/login', [
                 last_name: user.last_name,
                 email: user.email,
                 role: user.role,
-                avatar: user.avatar
+                avatar: user.avatar_url
             }
         });
     } catch (err) {
@@ -118,16 +119,16 @@ router.get('/profile', async (req, res) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_2024');
-        const [users] = await pool.query(
-            'SELECT id, first_name, last_name, email, role, avatar, bio, created_at FROM users WHERE id = ?',
+        const result = await pool.query(
+            'SELECT id, first_name, last_name, email, role, avatar_url, created_at FROM users WHERE id = $1',
             [decoded.userId]
         );
 
-        if (users.length === 0) {
+        if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Utilisateur non trouve' });
         }
 
-        res.json({ user: users[0] });
+        res.json({ user: result.rows[0] });
     } catch (err) {
         res.status(403).json({ message: 'Token invalide' });
     }

@@ -4,44 +4,40 @@ const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET QCM d'une formation
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        // D'abord trouver le module de cette formation
-        const [modules] = await pool.query(`
-            SELECT id FROM modules WHERE formation_id = ? LIMIT 1
+        const modulesResult = await pool.query(`
+            SELECT id FROM modules WHERE formation_id = $1 LIMIT 1
         `, [req.params.formationId]);
 
-        if (modules.length === 0) {
+        if (modulesResult.rows.length === 0) {
             return res.status(404).json({ message: 'Aucun module trouve' });
         }
 
-        const moduleId = modules[0].id;
+        const moduleId = modulesResult.rows[0].id;
 
-        const [quizzes] = await pool.query(`
-            SELECT * FROM quizzes WHERE module_id = ? AND is_published = 1
+        const quizzesResult = await pool.query(`
+            SELECT * FROM quizzes WHERE module_id = $1 AND is_published = true
         `, [moduleId]);
 
-        if (quizzes.length === 0) {
+        if (quizzesResult.rows.length === 0) {
             return res.status(404).json({ message: 'Aucun examen trouve' });
         }
 
-        const quiz = quizzes[0];
+        const quiz = quizzesResult.rows[0];
 
-        // Recuperer les questions
-        const [questions] = await pool.query(`
+        const questionsResult = await pool.query(`
             SELECT * FROM quiz_questions 
-            WHERE quiz_id = ?
+            WHERE quiz_id = $1
             ORDER BY sort_order ASC, id ASC
         `, [quiz.id]);
 
-        // Pour chaque question, recuperer ses reponses
         const questionsWithAnswers = await Promise.all(
-            questions.map(async (q) => {
-                const [answers] = await pool.query(`
+            questionsResult.rows.map(async (q) => {
+                const answersResult = await pool.query(`
                     SELECT id, answer_text as text, is_correct, sort_order
                     FROM quiz_answers 
-                    WHERE question_id = ?
+                    WHERE question_id = $1
                     ORDER BY sort_order ASC, id ASC
                 `, [q.id]);
 
@@ -52,10 +48,10 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
                     points: q.points || 1,
                     sort_order: q.sort_order,
                     explanation: q.explanation || '',
-                    answers: answers.map(a => ({
+                    answers: answersResult.rows.map(a => ({
                         id: a.id,
                         text: a.text,
-                        is_correct: a.is_correct === 1 || a.is_correct === true
+                        is_correct: a.is_correct === true
                     }))
                 };
             })
@@ -78,7 +74,6 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
     }
 });
 
-// POST soumettre un examen
 router.post('/submit', verifyToken, async (req, res) => {
     const { quizId, answers, formationId } = req.body;
 
@@ -87,19 +82,19 @@ router.post('/submit', verifyToken, async (req, res) => {
         let totalPoints = 0;
 
         for (const [questionId, selectedAnswerId] of Object.entries(answers)) {
-            const [questionData] = await pool.query(`
-                SELECT points FROM quiz_questions WHERE id = ?
+            const questionResult = await pool.query(`
+                SELECT points FROM quiz_questions WHERE id = $1
             `, [questionId]);
 
-            const points = questionData[0]?.points || 1;
+            const points = questionResult.rows[0]?.points || 1;
             totalPoints += points;
 
-            const [correctAnswers] = await pool.query(`
+            const correctResult = await pool.query(`
                 SELECT * FROM quiz_answers 
-                WHERE question_id = ? AND is_correct = true
+                WHERE question_id = $1 AND is_correct = true
             `, [questionId]);
 
-            if (correctAnswers.length > 0 && correctAnswers[0].id == selectedAnswerId) {
+            if (correctResult.rows.length > 0 && correctResult.rows[0].id == selectedAnswerId) {
                 score += points;
             }
         }
@@ -107,18 +102,16 @@ router.post('/submit', verifyToken, async (req, res) => {
         const percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
         const passed = percentage >= 70;
 
-        // Enregistrer la tentative
         await pool.query(`
-            INSERT INTO quiz_attempts (user_id, quiz_id, score, passed, completed_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO quiz_attempts (user_id, quiz_id, score, is_passed, completed_at)
+            VALUES ($1, $2, $3, $4, NOW())
         `, [req.userId, quizId, percentage, passed]);
 
-        // Si reussi, generer certificat
         if (passed) {
             await pool.query(`
                 INSERT INTO certificates (user_id, formation_id, issued_at, status)
-                VALUES (?, ?, NOW(), 'issued')
-                ON DUPLICATE KEY UPDATE issued_at = NOW(), status = 'issued'
+                VALUES ($1, $2, NOW(), 'issued')
+                ON CONFLICT (user_id, formation_id) DO UPDATE SET issued_at = NOW(), status = 'issued'
             `, [req.userId, formationId]);
         }
 

@@ -4,64 +4,58 @@ const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST marquer une lecon comme terminee
 router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
     try {
         const { formationId } = req.body;
 
-        // Verifier si l'inscription existe, sinon la creer
-        let [enrollment] = await pool.query(`
-            SELECT * FROM enrollments WHERE user_id = ? AND formation_id = ?
+        const enrollmentResult = await pool.query(`
+            SELECT * FROM enrollments WHERE user_id = $1 AND formation_id = $2
         `, [req.userId, formationId]);
 
         let enrollmentId;
-        if (enrollment.length === 0) {
-            // Creer l'inscription et recuperer l'ID
-            const [result] = await pool.query(`
+        if (enrollmentResult.rows.length === 0) {
+            const insertResult = await pool.query(`
                 INSERT INTO enrollments (user_id, formation_id, progress_percent, status, created_at, last_accessed_at, started_at, completed_lessons, total_lessons, total_time_spent)
-                VALUES (?, ?, 0, 'active', NOW(), NOW(), NOW(), 0, 0, 0)
+                VALUES ($1, $2, 0, 'active', NOW(), NOW(), NOW(), 0, 0, 0)
+                RETURNING id
             `, [req.userId, formationId]);
-            enrollmentId = result.insertId;
+            enrollmentId = insertResult.rows[0].id;
         } else {
-            enrollmentId = enrollment[0].id;
+            enrollmentId = enrollmentResult.rows[0].id;
         }
 
-        // Verifier si la lecon est deja terminee
-        const [existing] = await pool.query(`
+        const existingResult = await pool.query(`
             SELECT * FROM lesson_progress 
-            WHERE user_id = ? AND lesson_id = ?
+            WHERE user_id = $1 AND lesson_id = $2
         `, [req.userId, req.params.lessonId]);
 
-        if (existing.length > 0) {
-            return res.json({ message: 'Lecon deja terminee', progress: enrollment[0]?.progress_percent || 0 });
+        if (existingResult.rows.length > 0) {
+            return res.json({ message: 'Lecon deja terminee', progress: enrollmentResult.rows[0]?.progress_percent || 0 });
         }
 
-        // Marquer la lecon comme terminee avec enrollment_id
         await pool.query(`
             INSERT INTO lesson_progress (user_id, lesson_id, formation_id, enrollment_id, is_completed, completed_at, created_at, updated_at, watch_time, last_position)
-            VALUES (?, ?, ?, ?, true, NOW(), NOW(), NOW(), 0, 0)
+            VALUES ($1, $2, $3, $4, true, NOW(), NOW(), NOW(), 0, 0)
         `, [req.userId, req.params.lessonId, formationId, enrollmentId]);
 
-        // Calculer la progression
-        const [totalLessons] = await pool.query(`
-            SELECT COUNT(*) as total FROM lessons WHERE formation_id = ?
+        const totalResult = await pool.query(`
+            SELECT COUNT(*) as total FROM lessons WHERE formation_id = $1
         `, [formationId]);
 
-        const [completedLessons] = await pool.query(`
+        const completedResult = await pool.query(`
             SELECT COUNT(*) as completed FROM lesson_progress 
-            WHERE user_id = ? AND formation_id = ? AND is_completed = true
+            WHERE user_id = $1 AND formation_id = $2 AND is_completed = true
         `, [req.userId, formationId]);
 
-        const progressPercent = totalLessons[0].total > 0 
-            ? Math.round((completedLessons[0].completed / totalLessons[0].total) * 100) 
-            : 0;
+        const totalLessons = parseInt(totalResult.rows[0].total);
+        const completedLessons = parseInt(completedResult.rows[0].completed);
+        const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
-        // Mettre a jour la progression
         await pool.query(`
             UPDATE enrollments 
-            SET progress_percent = ?, completed_lessons = ?, last_accessed_at = NOW() 
-            WHERE user_id = ? AND formation_id = ?
-        `, [progressPercent, completedLessons[0].completed, req.userId, formationId]);
+            SET progress_percent = $1, completed_lessons = $2, last_accessed_at = NOW() 
+            WHERE user_id = $3 AND formation_id = $4
+        `, [progressPercent, completedLessons, req.userId, formationId]);
 
         res.json({ 
             message: 'Lecon terminee !',
@@ -73,23 +67,22 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
     }
 });
 
-// POST s'inscrire a une formation
 router.post('/enroll', verifyToken, async (req, res) => {
     const { formationId } = req.body;
 
     try {
-        const [existing] = await pool.query(
-            'SELECT * FROM enrollments WHERE user_id = ? AND formation_id = ?',
+        const existingResult = await pool.query(
+            'SELECT * FROM enrollments WHERE user_id = $1 AND formation_id = $2',
             [req.userId, formationId]
         );
 
-        if (existing.length > 0) {
+        if (existingResult.rows.length > 0) {
             return res.json({ message: 'Vous etes deja inscrit.', alreadyEnrolled: true });
         }
 
         await pool.query(`
             INSERT INTO enrollments (user_id, formation_id, progress_percent, status, created_at, last_accessed_at, started_at, completed_lessons, total_lessons, total_time_spent)
-            VALUES (?, ?, 0, 'active', NOW(), NOW(), NOW(), 0, 0, 0)
+            VALUES ($1, $2, 0, 'active', NOW(), NOW(), NOW(), 0, 0, 0)
         `, [req.userId, formationId]);
 
         res.json({ message: 'Inscription reussie !' });
@@ -99,38 +92,36 @@ router.post('/enroll', verifyToken, async (req, res) => {
     }
 });
 
-// GET progression de l'utilisateur
 router.get('/my', verifyToken, async (req, res) => {
     try {
-        const [progress] = await pool.query(`
+        const result = await pool.query(`
             SELECT p.*, f.title as formation_title, f.image as formation_image
             FROM enrollments p
             JOIN formations f ON p.formation_id = f.id
-            WHERE p.user_id = ?
+            WHERE p.user_id = $1
         `, [req.userId]);
-        res.json({ progress });
+        res.json({ progress: result.rows });
     } catch (err) {
         console.error('ERREUR progression:', err);
         res.status(500).json({ message: 'Erreur: ' + err.message });
     }
 });
 
-// GET progression d'une formation specifique
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        const [progress] = await pool.query(`
+        const progressResult = await pool.query(`
             SELECT * FROM enrollments 
-            WHERE user_id = ? AND formation_id = ?
+            WHERE user_id = $1 AND formation_id = $2
         `, [req.userId, req.params.formationId]);
 
-        const [lessonProgress] = await pool.query(`
+        const lessonResult = await pool.query(`
             SELECT * FROM lesson_progress 
-            WHERE user_id = ? AND formation_id = ?
+            WHERE user_id = $1 AND formation_id = $2
         `, [req.userId, req.params.formationId]);
 
         res.json({ 
-            enrollment: progress[0] || null, 
-            lessonProgress 
+            enrollment: progressResult.rows[0] || null, 
+            lessonProgress: lessonResult.rows 
         });
     } catch (err) {
         console.error('ERREUR progression formation:', err);

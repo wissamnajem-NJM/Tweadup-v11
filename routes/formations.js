@@ -4,31 +4,30 @@ const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET toutes les formations
 router.get('/', async (req, res) => {
     try {
-        const [formations] = await pool.query(`
+        const result = await pool.query(`
             SELECT f.*, c.name as category_name, c.color as category_color
             FROM formations f
             LEFT JOIN categories c ON f.category_id = c.id
             ORDER BY f.created_at DESC
         `);
+        const formations = result.rows;
 
-        // Pour chaque formation, compter les lecons et inscriptions
         const formationsWithCounts = await Promise.all(
             formations.map(async (formation) => {
-                const [lessonsCount] = await pool.query(
-                    'SELECT COUNT(*) as count FROM lessons WHERE formation_id = ?',
+                const lessonsResult = await pool.query(
+                    'SELECT COUNT(*) as count FROM lessons WHERE formation_id = $1',
                     [formation.id]
                 );
-                const [enrollCount] = await pool.query(
-                    'SELECT COUNT(*) as count FROM enrollments WHERE formation_id = ?',
+                const enrollResult = await pool.query(
+                    'SELECT COUNT(*) as count FROM enrollments WHERE formation_id = $1',
                     [formation.id]
                 );
                 return {
                     ...formation,
-                    lessons_count: lessonsCount[0].count,
-                    enrollments_count: enrollCount[0].count
+                    lessons_count: parseInt(lessonsResult.rows[0].count),
+                    enrollments_count: parseInt(enrollResult.rows[0].count)
                 };
             })
         );
@@ -40,35 +39,35 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET une formation par ID
 router.get('/:id', async (req, res) => {
     try {
-        const [formations] = await pool.query(`
+        const result = await pool.query(`
             SELECT f.*, c.name as category_name, c.color as category_color
             FROM formations f
             LEFT JOIN categories c ON f.category_id = c.id
-            WHERE f.id = ?
+            WHERE f.id = $1
         `, [req.params.id]);
+        const formations = result.rows;
 
         if (formations.length === 0) {
             return res.status(404).json({ message: 'Formation non trouvee' });
         }
 
-        const [lessons] = await pool.query(`
+        const lessonsResult = await pool.query(`
             SELECT * FROM lessons 
-            WHERE formation_id = ? 
+            WHERE formation_id = $1 
             ORDER BY sort_order ASC, id ASC
         `, [req.params.id]);
 
-        const [quizzes] = await pool.query(`
+        const quizzesResult = await pool.query(`
             SELECT * FROM quizzes 
-            WHERE formation_id = ?
+            WHERE formation_id = $1
         `, [req.params.id]);
 
         res.json({ 
             formation: formations[0], 
-            lessons, 
-            quizzes 
+            lessons: lessonsResult.rows, 
+            quizzes: quizzesResult.rows 
         });
     } catch (err) {
         console.error('ERREUR formation detail:', err);

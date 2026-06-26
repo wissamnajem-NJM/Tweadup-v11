@@ -1,16 +1,15 @@
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = mysql.createPool(process.env.DATABASE_URL);
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
-// Test de connexion
-pool.getConnection()
-    .then(conn => {
-        console.log('Connecte a la base de donnees MySQL (Railway)');
-        conn.release();
-    })
-    .catch(err => {
-        console.error('ERREUR connexion MySQL:', err.message);
-    });
+pool.connect()
+    .then(() => console.log('Connecte a PostgreSQL (Supabase)'))
+    .catch(err => console.error('ERREUR connexion PostgreSQL:', err.message));
 
 module.exports = pool;
