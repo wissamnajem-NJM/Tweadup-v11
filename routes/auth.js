@@ -35,15 +35,15 @@ router.post('/register', [
 
         // Creer l'utilisateur - adaptation à ta structure de table
         const [result] = await pool.query(
-            `INSERT INTO users (first_name, last_name, email, password, role_id, is_active, is_verified, created_at, updated_at) 
-             VALUES (?, ?, ?, ?, 3, 1, 0, NOW(), NOW())`,
+           `INSERT INTO users (first_name, last_name, email, password, role, created_at, updated_at) 
+ VALUES (?, ?, ?, ?, 'student', NOW(), NOW())`,
             [first_name, last_name, email, hashedPassword]
         );
         console.log('Utilisateur cree, ID:', result.insertId);
 
         // Generer le token
         const token = jwt.sign(
-            { userId: result.insertId, email, role_id: 3 },
+            { userId: result.insertId, email, role: 3 },
             process.env.JWT_SECRET || 'secret_key_2024',
             { expiresIn: '24h' }
         );
@@ -51,7 +51,7 @@ router.post('/register', [
         res.status(201).json({
             message: 'Compte cree avec succes !',
             token,
-            user: { id: result.insertId, first_name, last_name, email, role_id: 3 }
+            user: { id: result.insertId, first_name, last_name, email, role: 3 }
         });
     } catch (err) {
         console.error('ERREUR INSCRIPTION:', err);
@@ -88,7 +88,7 @@ router.post('/login', [
         }
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email, role_id: user.role_id },
+            { userId: user.id, email: user.email, role: user.role },
             process.env.JWT_SECRET || 'secret_key_2024',
             { expiresIn: '24h' }
         );
@@ -101,7 +101,7 @@ router.post('/login', [
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                role_id: user.role_id,
+                role: user.role,
                 avatar: user.avatar
             }
         });
@@ -119,7 +119,7 @@ router.get('/profile', async (req, res) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_2024');
         const [users] = await pool.query(
-            'SELECT id, first_name, last_name, email, role_id, avatar, bio, created_at FROM users WHERE id = ?',
+            'SELECT id, first_name, last_name, email, role, avatar, bio, created_at FROM users WHERE id = ?',
             [decoded.userId]
         );
 
