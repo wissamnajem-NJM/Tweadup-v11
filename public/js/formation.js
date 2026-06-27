@@ -22,6 +22,38 @@ async function loadFormation() {
 
         const allCompleted = lessons.length > 0 && lessons.every(l => completedLessons.includes(l.id));
 
+        // Si PAS inscrit, on cache les leçons et on montre le bouton d'inscription
+        const lessonsHtml = isEnrolled ? lessons.map((lesson, index) => `
+            <div class="lesson-item ${completedLessons.includes(lesson.id) ? 'completed' : ''}" 
+                 onclick="showLesson(${lesson.id})"
+                 style="cursor: pointer;">
+                <div class="lesson-number">${index + 1}</div>
+                <div class="lesson-info">
+                    <h4>${lesson.title}</h4>
+                    <span>${lesson.duration || lesson.video_duration || '10 min'}</span>
+                </div>
+                ${completedLessons.includes(lesson.id) ? '<i class="fas fa-check-circle lesson-status"></i>' : '<i class="far fa-circle" style="color: var(--gray-400);"></i>'}
+            </div>
+
+            <div id="lesson-content-${lesson.id}" class="lesson-content" style="display: none; padding: 1.5rem; background: var(--gray-50); border-radius: var(--radius); margin-bottom: 1rem; border: 1px solid var(--gray-200);">
+                ${lesson.video_url ? `
+                    <div class="video-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: var(--radius); margin-bottom: 1rem; background: var(--gray-900);">
+                        <iframe src="${lesson.video_url}" 
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen>
+                        </iframe>
+                    </div>
+                ` : '<p style="color: var(--gray-500); padding: 2rem; text-align: center;"><i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><br>Aucune vidéo disponible pour cette leçon.</p>'}
+                <div class="lesson-text" style="font-size: 1rem; line-height: 1.8; color: var(--gray-700); margin-bottom: 1.5rem;">
+                    ${lesson.content || lesson.description || '<p>Aucun contenu disponible pour cette leçon.</p>'}
+                </div>
+                <button class="btn btn-primary" onclick="completeLesson(${lesson.id}, ${formation.id}); event.stopPropagation();">
+                    <i class="fas fa-check"></i> ${completedLessons.includes(lesson.id) ? 'Déjà terminée' : 'Marquer comme terminée'}
+                </button>
+            </div>
+        `).join('') : '<p style="color: var(--gray-500); text-align: center; padding: 2rem;">Inscrivez-vous pour accéder au contenu du cours.</p>';
+
         document.getElementById('formationDetail').innerHTML = `
             <div class="formation-hero">
                 <img src="${formation.image_url || formation.image || 'https://via.placeholder.com/1200x350/6366f1/ffffff?text=' + encodeURIComponent(formation.title)}" alt="${formation.title}">
@@ -38,7 +70,7 @@ async function loadFormation() {
                     ${!isEnrolled ? `
                         <div style="background: var(--gray-50); padding: 2rem; border-radius: var(--radius-lg); text-align: center; margin: 2rem 0;">
                             <h3 style="margin-bottom: 1rem;">Rejoignez cette formation</h3>
-                            <p style="color: var(--gray-500); margin-bottom: 1.5rem;">Inscrivez-vous gratuitement pour sauvegarder votre progression.</p>
+                            <p style="color: var(--gray-500); margin-bottom: 1.5rem;">Inscrivez-vous gratuitement pour accéder à toutes les leçons.</p>
                             <button class="btn btn-primary btn-lg" onclick="enrollFormation(${formation.id})">
                                 <i class="fas fa-user-plus"></i> S'inscrire
                             </button>
@@ -51,40 +83,10 @@ async function loadFormation() {
 
                     <h2>Contenu du cours (${lessons.length} leçons)</h2>
                     <div class="lessons-list">
-                        ${lessons.length === 0 ? '<p style="color: var(--gray-500);">Aucune leçon disponible.</p>' : ''}
-                        ${lessons.map((lesson, index) => `
-                            <div class="lesson-item ${completedLessons.includes(lesson.id) ? 'completed' : ''}" 
-                                 onclick="showLesson(${lesson.id})"
-                                 style="cursor: pointer;">
-                                <div class="lesson-number">${index + 1}</div>
-                                <div class="lesson-info">
-                                    <h4>${lesson.title}</h4>
-                                    <span>${lesson.duration || lesson.video_duration || '10 min'}</span>
-                                </div>
-                                ${completedLessons.includes(lesson.id) ? '<i class="fas fa-check-circle lesson-status"></i>' : '<i class="far fa-circle" style="color: var(--gray-400);"></i>'}
-                            </div>
-
-                            <div id="lesson-content-${lesson.id}" class="lesson-content" style="display: none; padding: 1.5rem; background: var(--gray-50); border-radius: var(--radius); margin-bottom: 1rem; border: 1px solid var(--gray-200);">
-                                ${lesson.video_url ? `
-                                    <div class="video-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: var(--radius); margin-bottom: 1rem; background: var(--gray-900);">
-                                        <iframe src="${lesson.video_url}" 
-                                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
-                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                allowfullscreen>
-                                        </iframe>
-                                    </div>
-                                ` : '<p style="color: var(--gray-500); padding: 2rem; text-align: center;"><i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><br>Aucune vidéo disponible pour cette leçon.</p>'}
-                                <div class="lesson-text" style="font-size: 1rem; line-height: 1.8; color: var(--gray-700); margin-bottom: 1.5rem;">
-                                    ${lesson.content || lesson.description || '<p>Aucun contenu disponible pour cette leçon.</p>'}
-                                </div>
-                                <button class="btn btn-primary" onclick="completeLesson(${lesson.id}, ${formation.id}); event.stopPropagation();">
-                                    <i class="fas fa-check"></i> ${completedLessons.includes(lesson.id) ? 'Déjà terminée' : 'Marquer comme terminée'}
-                                </button>
-                            </div>
-                        `).join('')}
+                        ${lessonsHtml}
                     </div>
 
-                    ${allCompleted ? `
+                    ${allCompleted && isEnrolled ? `
                         <div style="margin-top: 2rem; text-align: center; padding: 2rem; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: var(--radius-lg);">
                             <h2>🎓 Examen final</h2>
                             <p style="color: var(--gray-600); margin-bottom: 1.5rem;">Vous avez terminé toutes les leçons ! Passez l'examen pour obtenir votre certificat.</p>
@@ -103,13 +105,13 @@ async function loadFormation() {
                             </div>
                             <span class="progress-text">${progressPercent}% complété</span>
                         </div>
-                        ${allCompleted ? `
+                        ${allCompleted && isEnrolled ? `
                             <a href="/exam/${formation.id}" class="btn btn-primary btn-full">
                                 <i class="fas fa-clipboard-check"></i> Passer l'examen
                             </a>
                         ` : `
                             <button class="btn btn-outline btn-full" disabled>
-                                <i class="fas fa-lock"></i> Examen verrouillé
+                                <i class="fas fa-lock"></i> ${isEnrolled ? 'Examen verrouillé' : 'Inscrivez-vous d abord'}
                             </button>
                         `}
                     </div>
