@@ -162,7 +162,10 @@ async function enrollFormation(formationId) {
 
     if (result) {
         showToast('Inscription réussie !', 'success');
-        loadFormation();
+        // RECHARGER LA PAGE après 1 seconde
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
     } else {
         showToast('Erreur inscription', 'error');
     }
@@ -176,10 +179,13 @@ async function completeLesson(lessonId, formationId) {
 
     if (result) {
         showToast('Leçon terminée !', 'success');
-        loadFormation();
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     } else {
         showToast('Erreur', 'error');
     }
 }
 
-loadFormation();
+// Charger au démarrage
+document.addEventListener('DOMContentLoaded', loadFormation);

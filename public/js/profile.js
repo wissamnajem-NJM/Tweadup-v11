@@ -6,7 +6,7 @@ async function loadProfile() {
     document.getElementById('profileAvatar').src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.first_name + ' ' + user.last_name) + '&background=6366f1&color=fff&size=150';
     document.getElementById('profileName').textContent = user.first_name + ' ' + user.last_name;
     document.getElementById('profileEmail').textContent = user.email;
-    document.getElementById('profileRole').textContent = user.role_id === 3 ? 'Etudiant' : (user.role || 'Utilisateur');
+    document.getElementById('profileRole').textContent = user.role_id === 3 ? 'Étudiant' : (user.role || 'Utilisateur');
 
     document.getElementById('editFirstName').value = user.first_name;
     document.getElementById('editLastName').value = user.last_name;
@@ -23,16 +23,16 @@ async function loadProfile() {
 
     if (progress && progress.progress) {
         formationsCount = progress.progress.length;
-        completedCount = progress.progress.filter(p => p.progress_percent === 100).length;
+        completedCount = progress.progress.filter(p => (p.progress_percent || p.progress || 0) === 100).length;
 
         const list = document.getElementById('profileFormationsList');
         if (list && progress.progress.length > 0) {
             list.innerHTML = progress.progress.map(p => `
                 <div class="formation-list-item" onclick="window.location.href='/formation/${p.formation_id}'">
-                    <img src="${p.formation_image || 'https://via.placeholder.com/60'}" alt="${p.formation_title}">
+                    <img src="${p.formations?.image_url || p.formation_image || 'https://via.placeholder.com/60'}" alt="${p.formations?.title || p.formation_title || 'Formation'}">
                     <div class="formation-list-info">
-                        <h4>${p.formation_title}</h4>
-                        <span>${p.progress_percent || 0}% complete</span>
+                        <h4>${p.formations?.title || p.formation_title || 'Formation'}</h4>
+                        <span>${p.progress_percent || p.progress || 0}% complété</span>
                     </div>
                 </div>
             `).join('');

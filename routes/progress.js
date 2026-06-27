@@ -9,7 +9,6 @@ router.post('/enroll', verifyToken, async (req, res) => {
     const { formationId } = req.body;
 
     try {
-        // Vérifier si déjà inscrit
         const { data: existing } = await supabase
             .from('enrollments')
             .select('*')
@@ -20,7 +19,6 @@ router.post('/enroll', verifyToken, async (req, res) => {
             return res.json({ message: 'Vous êtes déjà inscrit.', alreadyEnrolled: true });
         }
 
-        // Créer l'inscription
         const { error: insertError } = await supabase
             .from('enrollments')
             .insert([{
@@ -50,7 +48,6 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
     try {
         const { formationId } = req.body;
 
-        // Vérifier l'inscription
         const { data: enrollment } = await supabase
             .from('enrollments')
             .select('*')
@@ -59,7 +56,6 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
 
         let enrollmentId;
         if (!enrollment || enrollment.length === 0) {
-            // Créer l'inscription si pas existante
             const { data: newEnr, error: insertErr } = await supabase
                 .from('enrollments')
                 .insert([{
@@ -82,7 +78,6 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
             enrollmentId = enrollment[0].id;
         }
 
-        // Vérifier si la leçon est déjà terminée
         const { data: existing } = await supabase
             .from('lesson_progress')
             .select('*')
@@ -93,7 +88,6 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
             return res.json({ message: 'Leçon déjà terminée', progress: 0 });
         }
 
-        // Marquer comme terminée
         const { error: lpError } = await supabase
             .from('lesson_progress')
             .insert([{
@@ -112,12 +106,12 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
         if (lpError) throw lpError;
 
         // Calculer la progression
-        const { data: totalLessons } = await supabase
+        const { data: totalModules } = await supabase
             .from('modules')
             .select('id')
             .eq('formation_id', formationId);
 
-        const moduleIds = totalLessons ? totalLessons.map(m => m.id) : [];
+        const moduleIds = totalModules ? totalModules.map(m => m.id) : [];
         let totalCount = 0;
         if (moduleIds.length > 0) {
             const { data: allLessons } = await supabase
@@ -137,7 +131,6 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
         const completedCount = completedLessons ? completedLessons.length : 0;
         const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-        // Mettre à jour la progression
         await supabase
             .from('enrollments')
             .update({
