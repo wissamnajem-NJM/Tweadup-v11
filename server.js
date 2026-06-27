@@ -58,10 +58,14 @@ app.get('/certificate/:id', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'certificate.html'));
 });
 
-app.listen(PORT, () => {
-    console.log('========================================');
-    console.log('  TWEADUP SERVEUR DEMARRE');
-    console.log('  http://localhost:' + PORT);
-    console.log('  Version: 2.0 - CORRECTIONS APPLIQUEES');
-    console.log('========================================');
-});
+// Pour Vercel (serverless)
+if (process.env.VERCEL) {
+    module.exports = app;
+} else {
+    app.listen(PORT, () => {
+        console.log('========================================');
+        console.log('  TWEADUP SERVEUR DEMARRE');
+        console.log('  http://localhost:' + PORT);
+        console.log('========================================');
+    });
+}

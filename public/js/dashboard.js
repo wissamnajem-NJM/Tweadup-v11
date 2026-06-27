@@ -3,19 +3,12 @@ async function loadDashboard() {
     const user = getUser();
     if (!user) return;
 
-    // Load stats
+    document.getElementById('welcomeName').textContent = user.first_name || 'Utilisateur';
+
     await loadStats();
-
-    // Load continue learning
     await loadContinueLearning();
-
-    // Load my formations
     await loadMyFormations();
-
-    // Load certificates
     await loadCertificates();
-
-    // Load recommended
     await loadRecommended();
 }
 
@@ -25,7 +18,7 @@ async function loadStats() {
 
     if (progress && progress.progress) {
         document.getElementById('statFormations').textContent = progress.progress.length;
-        const completed = progress.progress.filter(p => p.progress === 100).length;
+        const completed = progress.progress.filter(p => p.progress_percent === 100 || p.progress === 100).length;
         document.getElementById('statCompleted').textContent = completed;
     }
 
@@ -46,7 +39,10 @@ async function loadContinueLearning() {
         return;
     }
 
-    const inProgress = progress.progress.filter(p => p.progress > 0 && p.progress < 100);
+    const inProgress = progress.progress.filter(p => {
+        const pct = p.progress_percent || p.progress || 0;
+        return pct > 0 && pct < 100;
+    });
 
     if (inProgress.length === 0) {
         section.style.display = 'none';
@@ -56,15 +52,15 @@ async function loadContinueLearning() {
     section.style.display = 'block';
     grid.innerHTML = inProgress.map(p => `
         <div class="continue-card" onclick="window.location.href='/formation/${p.formation_id}'">
-            <img src="${p.formation_image || 'https://via.placeholder.com/80'}" alt="${p.formation_title}">
+            <img src="${p.formation_image || p.image_url || 'https://via.placeholder.com/80'}" alt="${p.formation_title || 'Formation'}">
             <div class="continue-info">
-                <h3>${p.formation_title}</h3>
+                <h3>${p.formation_title || 'Formation'}</h3>
                 <p>Continuez où vous vous êtes arrêté</p>
                 <div class="formation-progress">
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${p.progress}%"></div>
+                        <div class="progress-fill" style="width: ${p.progress_percent || p.progress || 0}%"></div>
                     </div>
-                    <span class="progress-text">${p.progress}% complété</span>
+                    <span class="progress-text">${p.progress_percent || p.progress || 0}% complété</span>
                 </div>
             </div>
         </div>
@@ -85,15 +81,15 @@ async function loadMyFormations() {
     grid.innerHTML = progress.progress.map(p => `
         <div class="formation-card" onclick="window.location.href='/formation/${p.formation_id}'">
             <div class="formation-image">
-                <img src="${p.formation_image || 'https://via.placeholder.com/300x180'}" alt="${p.formation_title}">
+                <img src="${p.formation_image || p.image_url || 'https://via.placeholder.com/300x180'}" alt="${p.formation_title || 'Formation'}">
             </div>
             <div class="formation-content">
-                <div class="formation-title">${p.formation_title}</div>
+                <div class="formation-title">${p.formation_title || 'Formation'}</div>
                 <div class="formation-progress">
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${p.progress}%"></div>
+                        <div class="progress-fill" style="width: ${p.progress_percent || p.progress || 0}%"></div>
                     </div>
-                    <span class="progress-text">${p.progress}% complété</span>
+                    <span class="progress-text">${p.progress_percent || p.progress || 0}% complété</span>
                 </div>
             </div>
         </div>
@@ -114,7 +110,7 @@ async function loadCertificates() {
     grid.innerHTML = certificates.certificates.map(c => `
         <div class="certificate-card" onclick="window.location.href='/certificate/${c.formation_id}'">
             <i class="fas fa-award"></i>
-            <h3>${c.formation_title}</h3>
+            <h3>${c.formation_title || 'Certificat'}</h3>
             <p>Obtenu le ${new Date(c.issued_at).toLocaleDateString('fr-FR')}</p>
             <button class="btn btn-sm btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);">
                 <i class="fas fa-download"></i> Télécharger
@@ -137,11 +133,11 @@ async function loadRecommended() {
     grid.innerHTML = recommended.map(f => `
         <div class="formation-card" onclick="window.location.href='/formation/${f.id}'">
             <div class="formation-image">
-                <img src="${f.image || 'https://via.placeholder.com/300x180'}" alt="${f.title}">
-                <span class="formation-badge" style="background: ${f.category_color || '#6366f1'};">${f.category_name || 'Formation'}</span>
+                <img src="${f.image_url || f.image || 'https://via.placeholder.com/300x180'}" alt="${f.title}">
+                <span class="formation-badge" style="background: #6366f1;">${f.category || 'Formation'}</span>
             </div>
             <div class="formation-content">
-                <div class="formation-category">${f.category_name || 'Formation'}</div>
+                <div class="formation-category">${f.category || 'Formation'}</div>
                 <div class="formation-title">${f.title}</div>
                 <div class="formation-desc">${f.description || ''}</div>
                 <div class="formation-meta">

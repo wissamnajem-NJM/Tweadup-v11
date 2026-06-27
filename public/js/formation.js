@@ -7,7 +7,7 @@ async function loadFormation() {
         const data = await apiFetch('/formations/' + formationId);
 
         if (!data || !data.formation) {
-            document.getElementById('formationDetail').innerHTML = '<p>Formation non trouvee</p>';
+            document.getElementById('formationDetail').innerHTML = '<p>Formation non trouvée</p>';
             return;
         }
 
@@ -24,10 +24,10 @@ async function loadFormation() {
 
         document.getElementById('formationDetail').innerHTML = `
             <div class="formation-hero">
-                <img src="${formation.image || 'https://via.placeholder.com/1200x350/6366f1/ffffff?text=' + encodeURIComponent(formation.title)}" alt="${formation.title}">
+                <img src="${formation.image_url || formation.image || 'https://via.placeholder.com/1200x350/6366f1/ffffff?text=' + encodeURIComponent(formation.title)}" alt="${formation.title}">
                 <div class="formation-hero-overlay">
                     <h1>${formation.title}</h1>
-                    <p>${formation.category_name || 'Formation'} • ${lessons.length} lecons • ${formation.level || 'Tous niveaux'}</p>
+                    <p>${formation.category || 'Formation'} • ${lessons.length} leçons • ${formation.level || 'Tous niveaux'}</p>
                 </div>
             </div>
             <div class="formation-detail-content">
@@ -45,13 +45,13 @@ async function loadFormation() {
                         </div>
                     ` : `
                         <div style="background: #dcfce7; padding: 1rem; border-radius: var(--radius); margin: 1rem 0; color: #16a34a;">
-                            <i class="fas fa-check-circle"></i> Vous etes inscrit ! Progression: ${progressPercent}%
+                            <i class="fas fa-check-circle"></i> Vous êtes inscrit ! Progression: ${progressPercent}%
                         </div>
                     `}
 
-                    <h2>Contenu du cours (${lessons.length} lecons)</h2>
+                    <h2>Contenu du cours (${lessons.length} leçons)</h2>
                     <div class="lessons-list">
-                        ${lessons.length === 0 ? '<p style="color: var(--gray-500);">Aucune lecon disponible.</p>' : ''}
+                        ${lessons.length === 0 ? '<p style="color: var(--gray-500);">Aucune leçon disponible.</p>' : ''}
                         ${lessons.map((lesson, index) => `
                             <div class="lesson-item ${completedLessons.includes(lesson.id) ? 'completed' : ''}" 
                                  onclick="showLesson(${lesson.id})"
@@ -73,12 +73,12 @@ async function loadFormation() {
                                                 allowfullscreen>
                                         </iframe>
                                     </div>
-                                ` : '<p style="color: var(--gray-500); padding: 2rem; text-align: center;"><i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><br>Aucune video disponible pour cette lecon.</p>'}
+                                ` : '<p style="color: var(--gray-500); padding: 2rem; text-align: center;"><i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 0.5rem;"></i><br>Aucune vidéo disponible pour cette leçon.</p>'}
                                 <div class="lesson-text" style="font-size: 1rem; line-height: 1.8; color: var(--gray-700); margin-bottom: 1.5rem;">
-                                    ${lesson.content || lesson.description || '<p>Aucun contenu disponible pour cette lecon.</p>'}
+                                    ${lesson.content || lesson.description || '<p>Aucun contenu disponible pour cette leçon.</p>'}
                                 </div>
                                 <button class="btn btn-primary" onclick="completeLesson(${lesson.id}, ${formation.id}); event.stopPropagation();">
-                                    <i class="fas fa-check"></i> ${completedLessons.includes(lesson.id) ? 'Deja terminee' : 'Marquer comme terminee'}
+                                    <i class="fas fa-check"></i> ${completedLessons.includes(lesson.id) ? 'Déjà terminée' : 'Marquer comme terminée'}
                                 </button>
                             </div>
                         `).join('')}
@@ -87,9 +87,9 @@ async function loadFormation() {
                     ${allCompleted ? `
                         <div style="margin-top: 2rem; text-align: center; padding: 2rem; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: var(--radius-lg);">
                             <h2>🎓 Examen final</h2>
-                            <p style="color: var(--gray-600); margin-bottom: 1.5rem;">Vous avez termine toutes les lecons ! Passez l examen pour obtenir votre certificat.</p>
+                            <p style="color: var(--gray-600); margin-bottom: 1.5rem;">Vous avez terminé toutes les leçons ! Passez l'examen pour obtenir votre certificat.</p>
                             <a href="/exam/${formation.id}" class="btn btn-primary btn-lg" style="font-size: 1.1rem; padding: 1rem 2rem;">
-                                <i class="fas fa-clipboard-check"></i> Passer l examen final
+                                <i class="fas fa-clipboard-check"></i> Passer l'examen final
                             </a>
                         </div>
                     ` : ''}
@@ -101,27 +101,27 @@ async function loadFormation() {
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progressPercent}%"></div>
                             </div>
-                            <span class="progress-text">${progressPercent}% complete</span>
+                            <span class="progress-text">${progressPercent}% complété</span>
                         </div>
                         ${allCompleted ? `
                             <a href="/exam/${formation.id}" class="btn btn-primary btn-full">
-                                <i class="fas fa-clipboard-check"></i> Passer l examen
+                                <i class="fas fa-clipboard-check"></i> Passer l'examen
                             </a>
                         ` : `
                             <button class="btn btn-outline btn-full" disabled>
-                                <i class="fas fa-lock"></i> Examen verrouille
+                                <i class="fas fa-lock"></i> Examen verrouillé
                             </button>
                         `}
                     </div>
                     <div class="sidebar-card">
-                        <h3>Details</h3>
+                        <h3>Détails</h3>
                         <div class="sidebar-stat">
-                            <span><i class="fas fa-book"></i> Lecons</span>
+                            <span><i class="fas fa-book"></i> Leçons</span>
                             <span>${lessons.length}</span>
                         </div>
                         <div class="sidebar-stat">
-                            <span><i class="fas fa-clock"></i> Duree</span>
-                            <span>${formation.duration || 'N/A'}</span>
+                            <span><i class="fas fa-clock"></i> Durée</span>
+                            <span>${formation.duration_hours ? formation.duration_hours + 'h' : 'N/A'}</span>
                         </div>
                         <div class="sidebar-stat">
                             <span><i class="fas fa-signal"></i> Niveau</span>
@@ -129,7 +129,7 @@ async function loadFormation() {
                         </div>
                         <div class="sidebar-stat">
                             <span><i class="fas fa-certificate"></i> Certificat</span>
-                            <span>${formation.certificate_enabled ? 'Oui' : 'Non'}</span>
+                            <span>Oui</span>
                         </div>
                     </div>
                 </div>
@@ -159,7 +159,7 @@ async function enrollFormation(formationId) {
     });
 
     if (result) {
-        showToast('Inscription reussie !', 'success');
+        showToast('Inscription réussie !', 'success');
         loadFormation();
     } else {
         showToast('Erreur inscription', 'error');
@@ -173,7 +173,7 @@ async function completeLesson(lessonId, formationId) {
     });
 
     if (result) {
-        showToast('Lecon terminee !', 'success');
+        showToast('Leçon terminée !', 'success');
         loadFormation();
     } else {
         showToast('Erreur', 'error');
