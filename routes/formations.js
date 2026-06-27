@@ -3,7 +3,7 @@ const supabase = require('../config/db');
 
 const router = express.Router();
 
-// GET toutes les formations
+// GET toutes les formations - VERSION SIMPLE
 router.get('/', async (req, res) => {
     try {
         const { data: formations, error } = await supabase
@@ -13,48 +13,32 @@ router.get('/', async (req, res) => {
 
         if (error) throw error;
 
-        const formationsWithCounts = await Promise.all(
-            (formations || []).map(async (formation) => {
-                // Compter les modules
-                const { data: modules } = await supabase
-                    .from('modules')
-                    .select('id')
-                    .eq('formation_id', formation.id);
+        // Compter les leçons via une requête simple
+        const { data: modules } = await supabase.from('modules').select('id,formation_id');
+        const { data: lessons } = await supabase.from('lessons').select('id,module_id');
+        const { data: enrollments } = await supabase.from('enrollments').select('id,formation_id');
 
-                const moduleIds = modules ? modules.map(m => m.id) : [];
-                
-                // Compter les leçons
-                let lessonsCount = 0;
-                if (moduleIds.length > 0) {
-                    const { data: lessons } = await supabase
-                        .from('lessons')
-                        .select('id')
-                        .in('module_id', moduleIds);
-                    lessonsCount = lessons ? lessons.length : 0;
-                }
+        const formationsSimple = (formations || []).map(f => {
+            const modIds = (modules || []).filter(m => m.formation_id === f.id).map(m => m.id);
+            const lesCount = (lessons || []).filter(l => modIds.includes(l.module_id)).length;
+            const enrCount = (enrollments || []).filter(e => e.formation_id === f.id).length;
 
-                const { data: enrollments } = await supabase
-                    .from('enrollments')
-                    .select('id')
-                    .eq('formation_id', formation.id);
+            return {
+                ...f,
+                image: f.image_url || f.image,
+                lessons_count: lesCount,
+                enrollments_count: enrCount
+            };
+        });
 
-                return {
-                    ...formation,
-                    image: formation.image_url || formation.image,
-                    lessons_count: lessonsCount,
-                    enrollments_count: enrollments ? enrollments.length : 0
-                };
-            })
-        );
-
-        res.json({ formations: formationsWithCounts });
+        res.json({ formations: formationsSimple });
     } catch (err) {
         console.error('ERREUR formations:', err);
         res.status(500).json({ message: 'Erreur serveur: ' + err.message });
     }
 });
 
-// GET une formation par ID
+// GET une formation par ID - VERSION SIMPLE
 router.get('/:id', async (req, res) => {
     try {
         const { data: formations, error } = await supabase
@@ -70,26 +54,26 @@ router.get('/:id', async (req, res) => {
         const formation = formations[0];
         formation.image = formation.image_url || formation.image;
 
-        // Récupérer modules
+        // Modules
         const { data: modules } = await supabase
             .from('modules')
             .select('*')
             .eq('formation_id', req.params.id)
             .order('sort_order', { ascending: true });
 
-        const moduleIds = modules ? modules.map(m => m.id) : [];
-
-        // Récupérer leçons
+        // Leçons
+        const modIds = modules ? modules.map(m => m.id) : [];
         let lessons = [];
-        if (moduleIds.length > 0) {
-            const { data: lessonsData } = await supabase
+        if (modIds.length > 0) {
+            const { data: les } = await supabase
                 .from('lessons')
                 .select('*')
-                .in('module_id', moduleIds)
+                .in('module_id', modIds)
                 .order('sort_order', { ascending: true });
-            lessons = lessonsData || [];
+            lessons = les || [];
         }
 
+        // Quizzes
         const { data: quizzes } = await supabase
             .from('quizzes')
             .select('*')
