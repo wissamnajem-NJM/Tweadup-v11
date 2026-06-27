@@ -1,6 +1,5 @@
 const express = require('express');
 const supabase = require('../config/db');
-const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -16,25 +15,25 @@ router.get('/', async (req, res) => {
 
         const formationsWithCounts = await Promise.all(
             (formations || []).map(async (formation) => {
-                // Compter les modules de la formation
-                const { data: modules, error: mError } = await supabase
+                // Compter les modules
+                const { data: modules } = await supabase
                     .from('modules')
                     .select('id')
                     .eq('formation_id', formation.id);
 
                 const moduleIds = modules ? modules.map(m => m.id) : [];
                 
-                // Compter les leçons des modules
+                // Compter les leçons
                 let lessonsCount = 0;
                 if (moduleIds.length > 0) {
-                    const { data: lessons, error: lError } = await supabase
+                    const { data: lessons } = await supabase
                         .from('lessons')
                         .select('id')
                         .in('module_id', moduleIds);
                     lessonsCount = lessons ? lessons.length : 0;
                 }
 
-                const { data: enrollments, error: eError } = await supabase
+                const { data: enrollments } = await supabase
                     .from('enrollments')
                     .select('id')
                     .eq('formation_id', formation.id);
@@ -64,7 +63,6 @@ router.get('/:id', async (req, res) => {
             .eq('id', req.params.id);
 
         if (error) throw error;
-
         if (!formations || formations.length === 0) {
             return res.status(404).json({ message: 'Formation non trouvée' });
         }
@@ -72,8 +70,8 @@ router.get('/:id', async (req, res) => {
         const formation = formations[0];
         formation.image = formation.image_url || formation.image;
 
-        // Récupérer les modules
-        const { data: modules, error: mError } = await supabase
+        // Récupérer modules
+        const { data: modules } = await supabase
             .from('modules')
             .select('*')
             .eq('formation_id', req.params.id)
@@ -81,10 +79,10 @@ router.get('/:id', async (req, res) => {
 
         const moduleIds = modules ? modules.map(m => m.id) : [];
 
-        // Récupérer les leçons des modules
+        // Récupérer leçons
         let lessons = [];
         if (moduleIds.length > 0) {
-            const { data: lessonsData, error: lError } = await supabase
+            const { data: lessonsData } = await supabase
                 .from('lessons')
                 .select('*')
                 .in('module_id', moduleIds)
@@ -92,7 +90,7 @@ router.get('/:id', async (req, res) => {
             lessons = lessonsData || [];
         }
 
-        const { data: quizzes, error: qError } = await supabase
+        const { data: quizzes } = await supabase
             .from('quizzes')
             .select('*')
             .eq('formation_id', req.params.id);
