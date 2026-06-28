@@ -7,24 +7,11 @@ const router = express.Router();
 // GET QCM d'une formation
 router.get('/formation/:formationId', async (req, res) => {
     try {
-        const { data: modules, error: mError } = await supabase
-            .from('modules')
-            .select('id')
-            .eq('formation_id', req.params.formationId)
-            .limit(1);
-
-        if (mError) throw mError;
-
-        if (!modules || modules.length === 0) {
-            return res.status(404).json({ message: 'Aucun module trouve' });
-        }
-
-        const moduleId = modules[0].id;
-
+        // Chercher directement le quiz par formation_id (pas par module_id)
         const { data: quizzes, error: qError } = await supabase
             .from('quizzes')
             .select('*')
-            .eq('module_id', moduleId)
+            .eq('formation_id', req.params.formationId)
             .eq('is_published', true);
 
         if (qError) throw qError;
@@ -111,7 +98,7 @@ router.post('/submit', verifyToken, async (req, res) => {
 
             if (cError) throw cError;
 
-            // BUG CORRIGE : score incrémenté si la bonne réponse est sélectionnée
+            // BUG CORRIGE : score incremente si la bonne reponse est selectionnee
             if (correctAnswers && correctAnswers.length > 0 && correctAnswers[0].id == selectedAnswerId) {
                 score += points;
             }
@@ -133,7 +120,7 @@ router.post('/submit', verifyToken, async (req, res) => {
 
         if (insertError) throw insertError;
 
-        // Si réussi, générer certificat
+        // Si reussi, generer certificat
         if (passed) {
             const { error: certError } = await supabase
                 .from('certificates')
@@ -147,11 +134,11 @@ router.post('/submit', verifyToken, async (req, res) => {
             if (certError) throw certError;
         }
 
-        // BUG CORRIGE : réponse renvoyée au client
+        // BUG CORRIGE : reponse renvoyee au client
         res.json({
             passed,
             score: percentage,
-            message: passed ? 'Examen réussi' : 'Examen échoué'
+            message: passed ? 'Examen reussi' : 'Examen echoue'
         });
 
     } catch (err) {
