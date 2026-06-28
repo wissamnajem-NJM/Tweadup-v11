@@ -5,7 +5,7 @@ const { verifyToken } = require('../middleware/auth');
 const router = express.Router();
 
 // GET QCM d'une formation
-router.get('/formation/:formationId', verifyToken, async (req, res) => {
+router.get('/formation/:formationId', async (req, res) => {
     try {
         const { data: modules, error: mError } = await supabase
             .from('modules')
