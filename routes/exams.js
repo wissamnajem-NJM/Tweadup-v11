@@ -74,8 +74,8 @@ router.post('/submit', verifyToken, async (req, res) => {
     const { quizId, answers, formationId } = req.body;
 
     try {
-        let correctCount = 0;  // Nombre de bonnes reponses
-        let totalQuestions = 0;  // Nombre total de questions
+        let correctCount = 0;
+        let totalQuestions = 0;
 
         // Filtrer les reponses vides ou invalides
         const validAnswers = Object.entries(answers).filter(([questionId, answerId]) => {
@@ -83,18 +83,16 @@ router.post('/submit', verifyToken, async (req, res) => {
         });
 
         for (const [questionId, selectedAnswerId] of validAnswers) {
-            // Verifier que la question existe
             const { data: questionData, error: qError } = await supabase
                 .from('quiz_questions')
                 .select('id, points')
                 .eq('id', questionId)
                 .single();
 
-            if (qError || !questionData) continue;  // Question inexistante, on ignore
+            if (qError || !questionData) continue;
 
             totalQuestions += 1;
 
-            // Verifier si la reponse est correcte
             const { data: correctAnswers, error: cError } = await supabase
                 .from('quiz_answers')
                 .select('id')
@@ -113,7 +111,6 @@ router.post('/submit', verifyToken, async (req, res) => {
             }
         }
 
-        // Calculer le pourcentage
         const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
         const passed = percentage >= 70;
 
@@ -130,7 +127,7 @@ router.post('/submit', verifyToken, async (req, res) => {
 
         if (insertError) throw insertError;
 
-        // Si reussi, generer certificat
+        // Si reussi, generer certificat (AVEC upsert + onConflict)
         if (passed) {
             const { error: certError } = await supabase
                 .from('certificates')
@@ -143,12 +140,12 @@ router.post('/submit', verifyToken, async (req, res) => {
             if (certError) throw certError;
         }
 
-        // Reponse au client (AVEC les bonnes variables)
+        // Reponse au client
         res.json({
             passed,
-            score: percentage,           // Pourcentage (ex: 85)
-            correctCount: correctCount, // Bonnes reponses (ex: 24)
-            totalQuestions: totalQuestions, // Total questions (ex: 29)
+            score: percentage,
+            correctCount: correctCount,
+            totalQuestions: totalQuestions,
             message: passed ? 'Examen reussi' : 'Examen echoue'
         });
 
