@@ -7,7 +7,6 @@ const router = express.Router();
 // GET QCM d'une formation (PROTEGE - necessite connexion)
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        // Chercher directement le quiz par formation_id (pas par module_id)
         const { data: quizzes, error: qError } = await supabase
             .from('quizzes')
             .select('*')
@@ -75,36 +74,47 @@ router.post('/submit', verifyToken, async (req, res) => {
     const { quizId, answers, formationId } = req.body;
 
     try {
-        let score = 0;
-        let totalPoints = 0;
+        let correctCount = 0;  // Nombre de bonnes reponses
+        let totalQuestions = 0;  // Nombre total de questions
 
-        for (const [questionId, selectedAnswerId] of Object.entries(answers)) {
+        // Filtrer les reponses vides ou invalides
+        const validAnswers = Object.entries(answers).filter(([questionId, answerId]) => {
+            return questionId && answerId && answerId !== '' && answerId !== 'null' && answerId !== 'undefined';
+        });
+
+        for (const [questionId, selectedAnswerId] of validAnswers) {
+            // Verifier que la question existe
             const { data: questionData, error: qError } = await supabase
                 .from('quiz_questions')
-                .select('points')
+                .select('id, points')
                 .eq('id', questionId)
                 .single();
 
-            if (qError) throw qError;
+            if (qError || !questionData) continue;  // Question inexistante, on ignore
 
-            const points = questionData?.points || 1;
-            totalPoints += points;
+            totalQuestions += 1;
 
+            // Verifier si la reponse est correcte
             const { data: correctAnswers, error: cError } = await supabase
                 .from('quiz_answers')
-                .select('*')
+                .select('id')
                 .eq('question_id', questionId)
                 .eq('is_correct', true);
 
-            if (cError) throw cError;
+            if (cError) continue;
 
-            // Score incremente si la bonne reponse est selectionnee
-            if (correctAnswers && correctAnswers.length > 0 && correctAnswers[0].id == selectedAnswerId) {
-                score += points;
+            if (correctAnswers && correctAnswers.length > 0) {
+                const correctAnswerId = correctAnswers[0].id.toString();
+                const selectedId = selectedAnswerId.toString();
+
+                if (correctAnswerId === selectedId) {
+                    correctCount += 1;
+                }
             }
         }
 
-        const percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
+        // Calculer le pourcentage
+        const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
         const passed = percentage >= 70;
 
         // Enregistrer la tentative
@@ -120,7 +130,7 @@ router.post('/submit', verifyToken, async (req, res) => {
 
         if (insertError) throw insertError;
 
-        // Si reussi, generer certificat (SANS la colonne status)
+        // Si reussi, generer certificat
         if (passed) {
             const { error: certError } = await supabase
                 .from('certificates')
@@ -133,11 +143,12 @@ router.post('/submit', verifyToken, async (req, res) => {
             if (certError) throw certError;
         }
 
-        // Reponse renvoyee au client (AVEC totalPoints)
+        // Reponse au client (AVEC les bonnes variables)
         res.json({
             passed,
-            score: percentage,
-            totalPoints: totalPoints,
+            score: percentage,           // Pourcentage (ex: 85)
+            correctCount: correctCount, // Bonnes reponses (ex: 24)
+            totalQuestions: totalQuestions, // Total questions (ex: 29)
             message: passed ? 'Examen reussi' : 'Examen echoue'
         });
 
