@@ -37,13 +37,24 @@ async function loadExam() {
                 ${currentQuiz.time_limit ? `<div id="examTimer" style="font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-top: 0.5rem;">${currentQuiz.time_limit}:00</div>` : ''}
             </div>
             <div class="exam-card">
-                ${questions.map((q, index) => `
+                ${questions.map((q, index) => {
+                    // FILTRER LES REPONSES DUPLIQUEES
+                    const uniqueAnswers = [];
+                    const seenIds = new Set();
+                    (q.answers || []).forEach(a => {
+                        if (!seenIds.has(a.id)) {
+                            seenIds.add(a.id);
+                            uniqueAnswers.push(a);
+                        }
+                    });
+
+                    return `
                     <div class="question-item" id="question-${q.id}">
                         <span class="question-number">Question ${index + 1}</span>
                         <div class="question-text">${q.question}</div>
                         ${q.explanation ? `<p style="color: var(--gray-500); font-size: 0.9rem; margin-bottom: 1rem;">${q.explanation}</p>` : ''}
                         <div class="answers-list">
-                            ${q.answers.map(a => `
+                            ${uniqueAnswers.map(a => `
                                 <div class="answer-option" onclick="selectAnswer(${q.id}, ${a.id})" id="answer-${q.id}-${a.id}">
                                     <input type="radio" name="question_${q.id}" value="${a.id}" id="radio-${q.id}-${a.id}">
                                     <label for="radio-${q.id}-${a.id}">${a.text}</label>
@@ -51,7 +62,7 @@ async function loadExam() {
                             `).join('')}
                         </div>
                     </div>
-                `).join('')}
+                `}).join('')}
                 <button class="btn btn-primary btn-full" onclick="submitExam()" style="margin-top: 1rem;">
                     <i class="fas fa-paper-plane"></i> Soumettre l'examen
                 </button>
@@ -127,13 +138,18 @@ function showResult(result) {
     const iconClass = result.passed ? 'success' : 'fail';
     const color = result.passed ? 'var(--secondary)' : 'var(--danger)';
 
+    // CORRECTION: utiliser result.score (pourcentage) et result.totalQuestions
+    const percentage = result.score || 0;
+    const correctCount = result.correctCount || 0;
+    const totalQuestions = result.totalQuestions || 0;
+
     container.innerHTML = `
         <div class="exam-result">
             <div class="result-icon ${iconClass}"><i class="fas ${icon}"></i></div>
-            <div class="result-score" style="color: ${color};">${result.percentage}%</div>
+            <div class="result-score" style="color: ${color};">${percentage}%</div>
             <p class="result-message">${result.message}</p>
             <p style="color: var(--gray-500); margin-bottom: 2rem;">
-                Score: ${result.score}/${result.totalPoints} points
+                Score: ${correctCount}/${totalQuestions} points
             </p>
             <div class="certificate-actions">
                 ${result.passed ? `
