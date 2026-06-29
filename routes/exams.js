@@ -5,7 +5,7 @@ const { verifyToken } = require('../middleware/auth');
 const router = express.Router();
 
 // GET QCM d'une formation
-router.get('/formation/:formationId', async (req, res) => {
+router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
         // Chercher directement le quiz par formation_id (pas par module_id)
         const { data: quizzes, error: qError } = await supabase
