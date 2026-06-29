@@ -20,15 +20,20 @@ async function loadCertificate() {
 
     const cert = data.certificate;
 
+    // CORRECTION: utiliser cert.users et cert.formations
+    const firstName = cert.users?.first_name || 'Prenom';
+    const lastName = cert.users?.last_name || 'Nom';
+    const formationTitle = cert.formations?.title || 'Formation';
+
     document.getElementById('certificateContainer').innerHTML = `
         <div class="certificate-preview" id="certificatePdf">
             <div class="certificate-content">
                 <i class="fas fa-award certificate-badge"></i>
                 <h2>CERTIFICAT DE REUSSITE</h2>
                 <p>Ce certificat est decerne a</p>
-                <div class="certificate-name">${cert.first_name} ${cert.last_name}</div>
+                <div class="certificate-name">${firstName} ${lastName}</div>
                 <p>pour avoir complete avec succes la formation</p>
-                <h3>${cert.formation_title}</h3>
+                <h3>${formationTitle}</h3>
                 <p class="certificate-date">Delivre le ${new Date(cert.issued_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                 <div style="margin-top: 2rem; font-size: 0.8rem; opacity: 0.6;">
                     <i class="fas fa-shield-alt"></i> Certificat verifie par Tweadup
@@ -49,7 +54,6 @@ async function loadCertificate() {
 function downloadCertificate() {
     showToast('Generation du PDF en cours...', 'info');
 
-    // Utiliser la bibliotheque jsPDF si disponible, sinon utiliser window.print
     const certificate = document.getElementById('certificatePdf');
     if (certificate) {
         const printWindow = window.open('', '_blank');
