@@ -1,13 +1,19 @@
 const express = require('express');
-const pool = require('../config/db');
+const supabase = require('../config/db');
 
 const router = express.Router();
 
 // GET toutes les formations
 router.get('/', async (req, res) => {
     try {
-        const [formations] = await pool.query('SELECT * FROM formations ORDER BY created_at DESC');
-        res.json({ formations });
+        const { data: formations, error } = await supabase
+            .from('formations')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        res.json({ formations: formations || [] });
     } catch (err) {
         console.error('ERREUR formations:', err);
         res.status(500).json({ message: 'Erreur serveur: ' + err.message });
@@ -17,17 +23,29 @@ router.get('/', async (req, res) => {
 // GET une formation par ID
 router.get('/:id', async (req, res) => {
     try {
-        const [formations] = await pool.query('SELECT * FROM formations WHERE id = ?', [req.params.id]);
-        
-        if (formations.length === 0) {
+        const { data: formations, error: formationError } = await supabase
+            .from('formations')
+            .select('*')
+            .eq('id', req.params.id)
+            .single();
+
+        if (formationError) throw formationError;
+
+        if (!formations) {
             return res.status(404).json({ message: 'Formation non trouvee' });
         }
 
-        const [lessons] = await pool.query('SELECT * FROM lessons WHERE module_id = ? ORDER BY sort_order ASC', [req.params.id]);
-        
+        const { data: lessons, error: lessonsError } = await supabase
+            .from('lessons')
+            .select('*')
+            .eq('module_id', req.params.id)
+            .order('sort_order', { ascending: true });
+
+        if (lessonsError) throw lessonsError;
+
         res.json({ 
-            formation: formations[0], 
-            lessons 
+            formation: formations, 
+            lessons: lessons || []
         });
     } catch (err) {
         console.error('ERREUR formation detail:', err);
@@ -35,4 +53,4 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = router;    
