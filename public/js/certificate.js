@@ -19,8 +19,6 @@ async function loadCertificate() {
     }
 
     const cert = data.certificate;
-
-    // CORRECTION: utiliser cert.users et cert.formations
     const firstName = cert.users?.first_name || 'Prenom';
     const lastName = cert.users?.last_name || 'Nom';
     const formationTitle = cert.formations?.title || 'Formation';
@@ -54,30 +52,17 @@ async function loadCertificate() {
 function downloadCertificate() {
     showToast('Generation du PDF en cours...', 'info');
 
-    const certificate = document.getElementById('certificatePdf');
-    if (certificate) {
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>Certificat - Tweadup</title>
-                <style>
-                    body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
-                    .certificate { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 3rem; text-align: center; color: white; width: 800px; border-radius: 16px; }
-                    .badge { font-size: 4rem; color: #ffd700; margin-bottom: 1rem; }
-                    h2 { font-size: 2.5rem; margin-bottom: 0.5rem; background: linear-gradient(90deg, #ffd700, #ffed4a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                    .name { font-size: 2rem; font-weight: bold; color: #ffd700; margin: 1rem 0; }
-                    .date { font-size: 0.9rem; opacity: 0.7; }
-                </style>
-            </head>
-            <body>
-                ${certificate.innerHTML}
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-    }
+    const element = document.getElementById('certificatePdf');
+
+    const opt = {
+        margin:       0,
+        filename:     'Certificat-Tweadup-' + certFormationId + '.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(element).save();
 }
 
 loadCertificate();
