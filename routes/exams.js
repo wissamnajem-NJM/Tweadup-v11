@@ -4,7 +4,7 @@ const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET QCM d'une formation
+// GET QCM d'une formation (PROTEGE - necessite connexion)
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
         // Chercher directement le quiz par formation_id (pas par module_id)
@@ -70,7 +70,7 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
     }
 });
 
-// POST soumettre un examen
+// POST soumettre un examen (PROTEGE - necessite connexion)
 router.post('/submit', verifyToken, async (req, res) => {
     const { quizId, answers, formationId } = req.body;
 
@@ -98,7 +98,7 @@ router.post('/submit', verifyToken, async (req, res) => {
 
             if (cError) throw cError;
 
-            // BUG CORRIGE : score incremente si la bonne reponse est selectionnee
+            // Score incremente si la bonne reponse est selectionnee
             if (correctAnswers && correctAnswers.length > 0 && correctAnswers[0].id == selectedAnswerId) {
                 score += points;
             }
@@ -120,24 +120,24 @@ router.post('/submit', verifyToken, async (req, res) => {
 
         if (insertError) throw insertError;
 
-        // Si reussi, generer certificat
+        // Si reussi, generer certificat (SANS la colonne status)
         if (passed) {
             const { error: certError } = await supabase
                 .from('certificates')
                 .upsert([{
                     user_id: req.userId,
                     formation_id: formationId,
-                    issued_at: new Date().toISOString(),
-                    status: 'issued'
+                    issued_at: new Date().toISOString()
                 }], { onConflict: 'user_id,formation_id' });
 
             if (certError) throw certError;
         }
 
-        // BUG CORRIGE : reponse renvoyee au client
+        // Reponse renvoyee au client (AVEC totalPoints)
         res.json({
             passed,
             score: percentage,
+            totalPoints: totalPoints,
             message: passed ? 'Examen reussi' : 'Examen echoue'
         });
 
