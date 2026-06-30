@@ -1,33 +1,27 @@
 const express = require('express');
-const supabase = require('../config/db');
+const supabase = require('../config/supabase');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET QCM d'une formation (PROTEGE - necessite connexion)
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        const { data: quizzes, error: qError } = await supabase
+        const { data: quizzes } = await supabase
             .from('quizzes')
             .select('*')
-            .eq('formation_id', req.params.formationId)
-            .eq('is_published', true);
-
-        if (qError) throw qError;
+            .eq('formation_id', req.params.formationId);
 
         if (!quizzes || quizzes.length === 0) {
-            return res.status(404).json({ message: 'Aucun examen trouve' });
+            return res.status(404).json({ message: 'Aucun examen' });
         }
 
         const quiz = quizzes[0];
 
-        const { data: questions, error: quError } = await supabase
+        const { data: questions } = await supabase
             .from('quiz_questions')
             .select('*')
             .eq('quiz_id', quiz.id)
             .order('sort_order', { ascending: true });
-
-        if (quError) throw quError;
 
         const questionsWithAnswers = await Promise.all(
             (questions || []).map(async (q) => {
@@ -40,13 +34,11 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
                 return {
                     id: q.id,
                     question: q.question,
-                    question_type: q.question_type,
                     points: q.points || 1,
-                    sort_order: q.sort_order,
                     answers: (answers || []).map(a => ({
                         id: a.id,
                         text: a.answer_text,
-                        is_correct: a.is_correct
+                        is_correct: a.is_correct === true
                     }))
                 };
             })
@@ -59,99 +51,92 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
                 description: quiz.description,
                 passing_score: quiz.passing_score || 70,
                 time_limit: quiz.time_limit,
-                max_attempts: quiz.max_attempts || 3,
                 questions: questionsWithAnswers
             }
         });
     } catch (err) {
-        console.error('ERREUR examen:', err);
-        res.status(500).json({ message: 'Erreur serveur: ' + err.message });
+        res.status(500).json({ message: 'Erreur' });
     }
 });
 
-// POST soumettre un examen (PROTEGE - necessite connexion)
 router.post('/submit', verifyToken, async (req, res) => {
-    const { quizId, answers, formationId } = req.body;
-
     try {
-        let correctCount = 0;
-        let totalQuestions = 0;
+        const { quizId, answers, formationId } = req.body;
+        
+        console.log('SUBMIT - answers:', answers);
+        console.log('SUBMIT - formationId:', formationId);
 
-        // Filtrer les reponses vides ou invalides
-        const validAnswers = Object.entries(answers).filter(([questionId, answerId]) => {
-            return questionId && answerId && answerId !== '' && answerId !== 'null' && answerId !== 'undefined';
-        });
+        if (!answers || Object.keys(answers).length === 0) {
+            return res.status(400).json({ message: 'Aucune réponse' });
+        }
 
-        for (const [questionId, selectedAnswerId] of validAnswers) {
-            const { data: questionData, error: qError } = await supabase
-                .from('quiz_questions')
-                .select('id, points')
-                .eq('id', questionId)
-                .single();
+        let score = 0;
+        let totalPoints = 0;
 
-            if (qError || !questionData) continue;
+        for (const [questionId, selectedAnswerId] of Object.entries(answers)) {
+            totalPoints += 1;
 
-            totalQuestions += 1;
-
-            const { data: correctAnswers, error: cError } = await supabase
+            const { data: correctAnswers } = await supabase
                 .from('quiz_answers')
-                .select('id')
+                .select('*')
                 .eq('question_id', questionId)
                 .eq('is_correct', true);
 
-            if (cError) continue;
-
             if (correctAnswers && correctAnswers.length > 0) {
-                const correctAnswerId = correctAnswers[0].id.toString();
-                const selectedId = selectedAnswerId.toString();
-
-                if (correctAnswerId === selectedId) {
-                    correctCount += 1;
+                console.log('Q' + questionId + ': correct=' + correctAnswers[0].id + ' selected=' + selectedAnswerId);
+                if (correctAnswers[0].id == selectedAnswerId) {
+                    score += 1;
                 }
             }
         }
 
-        const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+        const percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
         const passed = percentage >= 70;
 
-        // Enregistrer la tentative
-        const { error: insertError } = await supabase
-            .from('quiz_attempts')
-            .insert([{
-                user_id: req.userId,
-                quiz_id: quizId,
-                score: percentage,
-                is_passed: passed,
-                completed_at: new Date().toISOString()
-            }]);
+        console.log('RESULT:', score, '/', totalPoints, '=', percentage, '% passed:', passed);
 
-        if (insertError) throw insertError;
-
-        // Si reussi, generer certificat (AVEC upsert + onConflict)
-        if (passed) {
-            const { error: certError } = await supabase
-                .from('certificates')
-                .upsert([{
-                    user_id: req.userId,
-                    formation_id: formationId,
-                    issued_at: new Date().toISOString()
-                }], { onConflict: 'user_id,formation_id' });
-
-            if (certError) throw certError;
-        }
-
-        // Reponse au client
-        res.json({
-            passed,
+        // Sauvegarder la tentative
+        await supabase.from('quiz_attempts').insert({
+            user_id: req.userId,
+            quiz_id: quizId,
             score: percentage,
-            correctCount: correctCount,
-            totalQuestions: totalQuestions,
-            message: passed ? 'Examen reussi' : 'Examen echoue'
+            completed_at: new Date().toISOString()
         });
 
+        // Créer le certificat si réussi
+        if (passed) {
+            const { data: existing } = await supabase
+                .from('certificates')
+                .select('*')
+                .eq('user_id', req.userId)
+                .eq('formation_id', formationId)
+                .single();
+
+            if (existing) {
+                await supabase.from('certificates').update({
+                    quiz_score: percentage,
+                    issued_at: new Date().toISOString()
+                }).eq('user_id', req.userId).eq('formation_id', formationId);
+            } else {
+                await supabase.from('certificates').insert({
+                    user_id: req.userId,
+                    formation_id: formationId,
+                    quiz_score: percentage,
+                    issued_at: new Date().toISOString()
+                });
+            }
+        }
+
+        res.json({
+            score: score,
+            totalPoints: totalPoints,
+            percentage: percentage,
+            passed: passed,
+            message: passed ? 'Félicitations !' : 'Réessayez !'
+        });
     } catch (err) {
-        console.error('ERREUR soumission examen:', err);
-        res.status(500).json({ message: 'Erreur serveur: ' + err.message });
+        console.error('ERREUR:', err);
+        res.status(500).json({ message: 'Erreur' });
     }
 });
 

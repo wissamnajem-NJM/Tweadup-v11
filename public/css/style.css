@@ -467,8 +467,32 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
     font-weight: bold;
 }
 
-/* ===== CERTIFICATE PRINT ===== */
+/* ===== PRINT CERTIFICATE ===== */
 @media print {
-    .navbar, .certificate-actions { display: none !important; }
-    .certificate-preview { box-shadow: none !important; }
+    .navbar, 
+    .certificate-actions,
+    .dropdown-menu,
+    .user-menu i,
+    .nav-links {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-top: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .certificate-preview {
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+    }
+    
+    body {
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
 }

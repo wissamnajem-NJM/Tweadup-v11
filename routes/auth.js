@@ -2,11 +2,10 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const supabase = require('../config/db');
+const supabase = require('../config/supabase');
 
 const router = express.Router();
 
-// INSCRIPTION
 router.post('/register', [
     body('first_name').notEmpty().withMessage('Prenom requis'),
     body('last_name').notEmpty().withMessage('Nom requis'),
@@ -19,56 +18,45 @@ router.post('/register', [
     }
 
     const { first_name, last_name, email, password } = req.body;
-    console.log('Tentative inscription:', email);
 
     try {
-        // Verifier si l'email existe deja
-        const { data: existing, error: checkError } = await supabase
+        const { data: existing } = await supabase
             .from('users')
             .select('id')
-            .eq('email', email);
+            .eq('email', email)
+            .single();
 
-        if (checkError) throw checkError;
-
-        if (existing && existing.length > 0) {
-            console.log('Email deja utilise:', email);
+        if (existing) {
             return res.status(400).json({ message: 'Cet email est deja utilise.' });
         }
 
-        // Hasher le mot de passe
         const hashedPassword = await bcrypt.hash(password, 10);
-        console.log('Mot de passe hashe');
 
-        // Creer l'utilisateur
-        const { data, error } = await supabase
+        const { data: user, error } = await supabase
             .from('users')
-            .insert([{ 
-                first_name, 
-                last_name, 
-                email, 
-                password: hashedPassword, 
-                role: 'student',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }])
-            .select();
+            .insert({
+                first_name,
+                last_name,
+                email,
+                password: hashedPassword,
+                role_id: 3,
+                is_active: true
+            })
+            .select()
+            .single();
 
         if (error) throw error;
 
-        const userId = data[0].id;
-        console.log('Utilisateur cree, ID:', userId);
-
-        // Generer le token
         const token = jwt.sign(
-            { userId: userId, email, role: 'student' },
-            process.env.JWT_SECRET || 'secret_key_2024',
+            { userId: user.id, email, role_id: 3 },
+            process.env.JWT_SECRET || 'tweadup_secret_key_2024',
             { expiresIn: '24h' }
         );
 
         res.status(201).json({
             message: 'Compte cree avec succes !',
             token,
-            user: { id: userId, first_name, last_name, email, role: 'student' }
+            user: { id: user.id, first_name, last_name, email, role_id: 3 }
         });
     } catch (err) {
         console.error('ERREUR INSCRIPTION:', err);
@@ -76,7 +64,6 @@ router.post('/register', [
     }
 });
 
-// CONNEXION
 router.post('/login', [
     body('email').isEmail().withMessage('Email invalide'),
     body('password').notEmpty().withMessage('Mot de passe requis')
@@ -87,32 +74,26 @@ router.post('/login', [
     }
 
     const { email, password } = req.body;
-    console.log('Tentative connexion:', email);
 
     try {
-        const { data: users, error } = await supabase
+        const { data: user, error } = await supabase
             .from('users')
             .select('*')
-            .eq('email', email);
+            .eq('email', email)
+            .single();
 
-        if (error) throw error;
-
-        if (!users || users.length === 0) {
-            console.log('Utilisateur non trouve:', email);
+        if (!user) {
             return res.status(401).json({ message: 'Email ou mot de passe incorrect.' });
         }
 
-        const user = users[0];
         const isMatch = await bcrypt.compare(password, user.password);
-        console.log('Mot de passe correspond:', isMatch);
-
         if (!isMatch) {
             return res.status(401).json({ message: 'Email ou mot de passe incorrect.' });
         }
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email, role: user.role },
-            process.env.JWT_SECRET || 'secret_key_2024',
+            { userId: user.id, email: user.email, role_id: user.role_id },
+            process.env.JWT_SECRET || 'tweadup_secret_key_2024',
             { expiresIn: '24h' }
         );
 
@@ -124,38 +105,12 @@ router.post('/login', [
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
-                role: user.role,
-                avatar: user.avatar_url
+                role_id: user.role_id
             }
         });
     } catch (err) {
         console.error('ERREUR CONNEXION:', err);
         res.status(500).json({ message: 'Erreur serveur: ' + err.message });
-    }
-});
-
-// PROFIL UTILISATEUR
-router.get('/profile', async (req, res) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Non authentifie' });
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_2024');
-        
-        const { data: users, error } = await supabase
-            .from('users')
-            .select('id, first_name, last_name, email, role, avatar_url, created_at')
-            .eq('id', decoded.userId);
-
-        if (error) throw error;
-
-        if (!users || users.length === 0) {
-            return res.status(404).json({ message: 'Utilisateur non trouve' });
-        }
-
-        res.json({ user: users[0] });
-    } catch (err) {
-        res.status(403).json({ message: 'Token invalide' });
     }
 });
 

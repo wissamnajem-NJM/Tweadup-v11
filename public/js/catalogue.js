@@ -1,4 +1,3 @@
-// ===== CATALOGUE =====
 let allFormations = [];
 
 async function loadCatalogue() {
@@ -16,7 +15,7 @@ async function loadCatalogue() {
         loadCategories(allFormations);
     } catch (err) {
         console.error('Erreur chargement catalogue:', err);
-        document.getElementById('formationsGrid').innerHTML = '<p style="text-align:center;padding:2rem;color:var(--danger);">Erreur de chargement. Vérifiez la console.</p>';
+        document.getElementById('formationsGrid').innerHTML = '<p style="text-align:center;padding:2rem;color:var(--danger);">Erreur de chargement</p>';
     }
 }
 
@@ -29,22 +28,23 @@ function displayFormations(formations) {
     }
 
     grid.innerHTML = formations.map(f => {
-        const imgUrl = f.image_url || f.image || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(f.title);
-        const lessons = f.lessons_count !== undefined ? f.lessons_count : 0;
+        const title = f.title || 'Sans titre';
+        const category = f.category_name || 'Formation';
+        const image = f.image || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(title);
         
         return `
         <div class="formation-card" onclick="window.location.href='/formation/${f.id}'">
             <div class="formation-image">
-                <img src="${imgUrl}" alt="${f.title}" onerror="this.src='https://via.placeholder.com/300x180/6366f1/ffffff?text=${encodeURIComponent(f.title)}'">
-                <span class="formation-badge" style="background: #6366f1;">${f.category || 'Formation'}</span>
+                <img src="${image}" alt="${title}" onerror="this.src='https://via.placeholder.com/300x180/6366f1/ffffff?text=Formation'">
+                <span class="formation-badge" style="background: #6366f1;">${category}</span>
             </div>
             <div class="formation-content">
-                <div class="formation-category">${f.category || 'Formation'}</div>
-                <div class="formation-title">${f.title}</div>
-                <div class="formation-desc">${f.description || ''}</div>
+                <div class="formation-category">${category}</div>
+                <div class="formation-title">${title}</div>
+                <div class="formation-desc">${f.short_description || f.description || ''}</div>
                 <div class="formation-meta">
                     <div class="formation-stats">
-                        <span><i class="fas fa-book"></i> ${lessons} leçons</span>
+                        <span><i class="fas fa-book"></i> ${f.lessons_count || 0} leçons</span>
                         <span><i class="fas fa-users"></i> ${f.enrollments_count || 0}</span>
                         <span><i class="fas fa-signal"></i> ${f.level || 'Tous niveaux'}</span>
                     </div>
@@ -55,7 +55,7 @@ function displayFormations(formations) {
 }
 
 function loadCategories(formations) {
-    const categories = [...new Set(formations.map(f => f.category).filter(Boolean))];
+    const categories = [...new Set(formations.map(f => f.category_name).filter(Boolean))];
     const container = document.getElementById('categoryFilters');
 
     categories.forEach(cat => {
@@ -75,22 +75,20 @@ function filterByCategory(category, btn) {
     if (category === 'all') {
         displayFormations(allFormations);
     } else {
-        const filtered = allFormations.filter(f => f.category === category);
+        const filtered = allFormations.filter(f => f.category_name === category);
         displayFormations(filtered);
     }
 }
 
-// Search
 document.getElementById('searchInput')?.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
     const filtered = allFormations.filter(f => 
-        f.title.toLowerCase().includes(query) || 
+        (f.title && f.title.toLowerCase().includes(query)) || 
         (f.description && f.description.toLowerCase().includes(query))
     );
     displayFormations(filtered);
 });
 
-// All filter
 document.querySelector('[data-category="all"]')?.addEventListener('click', function() {
     document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
     this.classList.add('active');
