@@ -1,3 +1,4 @@
+// routes/formations.js - CORRIGÉ
 const express = require('express');
 const supabase = require('../config/db');
 
@@ -16,7 +17,6 @@ router.get('/', async (req, res) => {
             return res.status(500).json({ message: 'Erreur serveur: ' + error.message });
         }
 
-        // Pour chaque formation, compter les lecons et inscriptions
         const formationsWithCounts = await Promise.all(
             (formations || []).map(async (formation) => {
                 const { count: leconsCount } = await supabase
@@ -63,7 +63,7 @@ router.get('/:id', async (req, res) => {
             .from('lecons')
             .select('*')
             .eq('formation_id', req.params.id)
-            .order('sort_order', { ascending: true });
+            .order('ordre', { ascending: true }); // CORRIGÉ : ordre au lieu de sort_order
 
         const { data: quizzes, error: quizzesError } = await supabase
             .from('quizzes')
