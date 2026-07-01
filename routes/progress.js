@@ -10,7 +10,7 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
         const { formationId } = req.body;
 
         // Verifier si l'inscription existe
-        let { data: enrollment, error: enrollError } = await supabase
+        let { data: enrollment } = await supabase
             .from('enrollments')
             .select('*')
             .eq('user_id', req.userId)
@@ -19,7 +19,6 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
 
         let enrollmentId;
         if (!enrollment) {
-            // Creer l'inscription
             const { data: newEnrollment, error: insertError } = await supabase
                 .from('enrollments')
                 .insert([{
@@ -88,7 +87,7 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
             .eq('is_completed', true);
 
         const progressPercent = totalLessons > 0 
-            ? Math.min(Math.round((completedLessons / totalLessons) * 100), 100)  // LIMITE A 100% MAX
+            ? Math.min(Math.round((completedLessons / totalLessons) * 100), 100)
             : 0;
 
         // Mettre a jour la progression
@@ -128,12 +127,6 @@ router.post('/enroll', verifyToken, async (req, res) => {
             return res.json({ message: 'Vous etes deja inscrit.', alreadyEnrolled: true });
         }
 
-        // Compter le nombre total de lecons pour cette formation
-        const { count: totalLessons } = await supabase
-            .from('lessons')
-            .select('*', { count: 'exact', head: true })
-            .eq('formation_id', formationId);
-
         await supabase
             .from('enrollments')
             .insert([{
@@ -145,7 +138,7 @@ router.post('/enroll', verifyToken, async (req, res) => {
                 last_accessed_at: new Date().toISOString(),
                 started_at: new Date().toISOString(),
                 completed_lessons: 0,
-                total_lessons: totalLessons || 0,
+                total_lessons: 0,
                 total_time_spent: 0
             }]);
 
@@ -212,7 +205,6 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
             .eq('user_id', req.userId)
             .eq('formation_id', req.params.formationId);
 
-        // Retourner null au lieu de 403 si pas inscrit
         res.json({ 
             enrollment: progress || null, 
             lessonProgress: lessonProgress || [] 
