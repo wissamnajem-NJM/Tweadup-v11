@@ -96,7 +96,9 @@ async function apiFetch(url, options) {
             body: options.body || null
         });
 
-        if (response.status === 401) {
+        // Gérer 401 ET 403 (token invalide ou expiré)
+        if (response.status === 401 || response.status === 403) {
+            console.log('Token invalide, déconnexion...');
             logout();
             return null;
         }

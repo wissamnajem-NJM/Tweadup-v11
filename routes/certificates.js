@@ -1,11 +1,10 @@
-// routes/certificates.js - CORRIGÉ (sans relation formations)
 const express = require('express');
-const supabase = require('../config/supabase');
+const supabase = require('../config/db');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET certificats de l'utilisateur - SANS jointure formations
+// GET certificats de l'utilisateur
 router.get('/my', verifyToken, async (req, res) => {
     try {
         const { data: certificates, error } = await supabase
@@ -14,34 +13,44 @@ router.get('/my', verifyToken, async (req, res) => {
             .eq('user_id', req.userId)
             .order('issued_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            return res.status(500).json({ message: 'Erreur serveur' });
+        }
 
-        // Récupérer les titres des formations séparément
-        const formatted = await Promise.all((certificates || []).map(async (c) => {
-            const { data: formation } = await supabase
-                .from('formations')
-                .select('titre, image')
-                .eq('id', c.formation_id)
-                .single();
-            
-            return {
-                ...c,
-                formation_title: formation ? formation.titre : 'Formation',
-                formation_image: formation ? formation.image : ''
-            };
-        }));
+        // Enrichir avec les infos des formations et users
+        const enriched = await Promise.all(
+            (certificates || []).map(async (c) => {
+                const { data: formation } = await supabase
+                    .from('formations')
+                    .select('titre, title, image')
+                    .eq('id', c.formation_id)
+                    .single();
 
-        res.json({ certificates: formatted });
+                const { data: user } = await supabase
+                    .from('users')
+                    .select('first_name, last_name')
+                    .eq('id', c.user_id)
+                    .single();
+
+                return {
+                    ...c,
+                    formation_title: formation?.titre || formation?.title || 'Formation',
+                    formation_image: formation?.image || null,
+                    first_name: user?.first_name,
+                    last_name: user?.last_name
+                };
+            })
+        );
+
+        res.json({ certificates: enriched });
     } catch (err) {
         res.status(500).json({ message: 'Erreur serveur' });
     }
 });
 
-// GET un certificat spécifique - SANS jointure
+// GET un certificat specifique
 router.get('/:formationId', verifyToken, async (req, res) => {
     try {
-        console.log('Fetching certificate for formation:', req.params.formationId, 'user:', req.userId);
-
         const { data: certificate, error } = await supabase
             .from('certificates')
             .select('*')
@@ -49,39 +58,34 @@ router.get('/:formationId', verifyToken, async (req, res) => {
             .eq('formation_id', req.params.formationId)
             .single();
 
-        console.log('Certificate found:', certificate);
-        console.log('Error:', error);
-
         if (error || !certificate) {
-            return res.status(404).json({ message: 'Certificat non trouve' });
+            return res.status(404).json({ message: 'Certificat non trouvé' });
         }
 
-        // Récupérer la formation séparément
+        // Enrichir
         const { data: formation } = await supabase
             .from('formations')
-            .select('titre, description')
-            .eq('id', req.params.formationId)
+            .select('titre, title, description')
+            .eq('id', certificate.formation_id)
             .single();
 
-        // Récupérer l'utilisateur séparément
         const { data: user } = await supabase
             .from('users')
             .select('first_name, last_name, email')
-            .eq('id', req.userId)
+            .eq('id', certificate.user_id)
             .single();
 
-        const formatted = {
+        const enriched = {
             ...certificate,
-            formation_title: formation ? formation.titre : 'Formation',
-            description: formation ? formation.description : '',
-            first_name: user ? user.first_name : '',
-            last_name: user ? user.last_name : '',
-            email: user ? user.email : ''
+            formation_title: formation?.titre || formation?.title || 'Formation',
+            description: formation?.description,
+            first_name: user?.first_name,
+            last_name: user?.last_name,
+            email: user?.email
         };
 
-        res.json({ certificate: formatted });
+        res.json({ certificate: enriched });
     } catch (err) {
-        console.error('ERREUR certificat:', err);
         res.status(500).json({ message: 'Erreur serveur' });
     }
 });

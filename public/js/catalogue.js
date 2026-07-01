@@ -1,9 +1,10 @@
+// ===== CATALOGUE =====
 let allFormations = [];
 
 async function loadCatalogue() {
     try {
         const data = await apiFetch('/formations');
-        console.log('Données reçues:', data);
+        console.log('Donnees recues:', data);
 
         if (!data || !data.formations) {
             document.getElementById('formationsGrid').innerHTML = '<p style="text-align:center;padding:2rem;">Aucune formation disponible</p>';
@@ -15,7 +16,7 @@ async function loadCatalogue() {
         loadCategories(allFormations);
     } catch (err) {
         console.error('Erreur chargement catalogue:', err);
-        document.getElementById('formationsGrid').innerHTML = '<p style="text-align:center;padding:2rem;color:var(--danger);">Erreur de chargement</p>';
+        document.getElementById('formationsGrid').innerHTML = '<p style="text-align:center;padding:2rem;color:var(--danger);">Erreur de chargement. Verifiez la console.</p>';
     }
 }
 
@@ -23,28 +24,29 @@ function displayFormations(formations) {
     const grid = document.getElementById('formationsGrid');
 
     if (formations.length === 0) {
-        grid.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--gray-500);">Aucune formation trouvée</p>';
+        grid.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--gray-500);">Aucune formation trouvee</p>';
         return;
     }
 
     grid.innerHTML = formations.map(f => {
-        const title = f.title || 'Sans titre';
-        const category = f.category_name || 'Formation';
-        const image = f.image || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(title);
+        // Fallback : utiliser titre OU title OU name
+        const title = f.titre || f.title || f.name || 'Sans titre';
+        const desc = f.short_description || f.description || f.resume || '';
+        const image = f.image || f.image_url || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(title);
         
         return `
         <div class="formation-card" onclick="window.location.href='/formation/${f.id}'">
             <div class="formation-image">
-                <img src="${image}" alt="${title}" onerror="this.src='https://via.placeholder.com/300x180/6366f1/ffffff?text=Formation'">
-                <span class="formation-badge" style="background: #6366f1;">${category}</span>
+                <img src="${image}" alt="${title}">
+                <span class="formation-badge" style="background: ${f.category_color || '#6366f1'};">${f.category_name || 'Formation'}</span>
             </div>
             <div class="formation-content">
-                <div class="formation-category">${category}</div>
+                <div class="formation-category">${f.category_name || 'Formation'}</div>
                 <div class="formation-title">${title}</div>
-                <div class="formation-desc">${f.short_description || f.description || ''}</div>
+                <div class="formation-desc">${desc}</div>
                 <div class="formation-meta">
                     <div class="formation-stats">
-                        <span><i class="fas fa-book"></i> ${f.lessons_count || 0} leçons</span>
+                        <span><i class="fas fa-book"></i> ${f.lessons_count || 0} lecons</span>
                         <span><i class="fas fa-users"></i> ${f.enrollments_count || 0}</span>
                         <span><i class="fas fa-signal"></i> ${f.level || 'Tous niveaux'}</span>
                     </div>
@@ -80,15 +82,18 @@ function filterByCategory(category, btn) {
     }
 }
 
+// Search
 document.getElementById('searchInput')?.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
-    const filtered = allFormations.filter(f => 
-        (f.title && f.title.toLowerCase().includes(query)) || 
-        (f.description && f.description.toLowerCase().includes(query))
-    );
+    const filtered = allFormations.filter(f => {
+        const title = (f.titre || f.title || f.name || '').toLowerCase();
+        const desc = (f.description || f.short_description || '').toLowerCase();
+        return title.includes(query) || desc.includes(query);
+    });
     displayFormations(filtered);
 });
 
+// All filter
 document.querySelector('[data-category="all"]')?.addEventListener('click', function() {
     document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
     this.classList.add('active');

@@ -241,7 +241,17 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .formation-content { padding: 1.25rem; }
 .formation-category { font-size: 0.75rem; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
 .formation-title { font-size: 1.1rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem; line-height: 1.4; }
-.formation-desc { font-size: 0.875rem; color: var(--gray-500); margin-bottom: 1rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.formation-desc { 
+    font-size: 0.875rem; 
+    color: var(--gray-500); 
+    margin-bottom: 1rem; 
+    display: -webkit-box; 
+    -webkit-line-clamp: 2; 
+    line-clamp: 2; 
+    -webkit-box-orient: vertical; 
+    box-orient: vertical;
+    overflow: hidden; 
+}
 .formation-meta { display: flex; align-items: center; justify-content: space-between; padding-top: 1rem; border-top: 1px solid var(--gray-100); }
 .formation-stats { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--gray-500); }
 .formation-stats span { display: flex; align-items: center; gap: 0.35rem; }

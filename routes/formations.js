@@ -1,8 +1,9 @@
 const express = require('express');
-const supabase = require('../config/supabase');
+const supabase = require('../config/db');
 
 const router = express.Router();
 
+// GET toutes les formations
 router.get('/', async (req, res) => {
     try {
         const { data: formations, error } = await supabase
@@ -10,79 +11,67 @@ router.get('/', async (req, res) => {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('ERREUR formations:', error);
+            return res.status(500).json({ message: 'Erreur serveur: ' + error.message });
+        }
 
-        const formatted = formations.map(f => ({
-            id: f.id,
-            title: f.titre,
-            category_name: f.categorie,
-            level: f.niveau,
-            description: f.description,
-            short_description: f.description,
-            image: f.image,
-            lessons_count: f.nombre_lecons,
-            duration: f.duree_totale,
-            created_at: f.created_at
-        }));
+        // Pour chaque formation, compter les lecons et inscriptions
+        const formationsWithCounts = await Promise.all(
+            (formations || []).map(async (formation) => {
+                const { count: lessonsCount } = await supabase
+                    .from('lessons')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('formation_id', formation.id);
 
-        res.json({ formations: formatted });
+                const { count: enrollCount } = await supabase
+                    .from('enrollments')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('formation_id', formation.id);
+
+                return {
+                    ...formation,
+                    lessons_count: lessonsCount || 0,
+                    enrollments_count: enrollCount || 0
+                };
+            })
+        );
+
+        res.json({ formations: formationsWithCounts });
     } catch (err) {
         console.error('ERREUR formations:', err);
         res.status(500).json({ message: 'Erreur serveur: ' + err.message });
     }
 });
 
+// GET une formation par ID
 router.get('/:id', async (req, res) => {
     try {
-        const { data: formation, error } = await supabase
+        const { data: formation, error: formError } = await supabase
             .from('formations')
             .select('*')
             .eq('id', req.params.id)
             .single();
 
-        if (error || !formation) {
+        if (formError || !formation) {
             return res.status(404).json({ message: 'Formation non trouvee' });
         }
 
-        const { data: modules, error: moduleError } = await supabase
-            .from('modules')
-            .select('id')
+        const { data: lessons, error: lessonsError } = await supabase
+            .from('lessons')
+            .select('*')
             .eq('formation_id', req.params.id)
-            .order('sort_order', { ascending: true })
-            .limit(1);
+            .order('sort_order', { ascending: true });
 
-        let lessons = [];
-        
-        if (modules && modules.length > 0) {
-            const moduleId = modules[0].id;
-            
-            const { data: lessonsData, error: lessonsError } = await supabase
-                .from('lessons')
-                .select('*')
-                .eq('module_id', moduleId)
-                .eq('is_published', true)
-                .order('sort_order', { ascending: true });
+        const { data: quizzes, error: quizzesError } = await supabase
+            .from('quizzes')
+            .select('*')
+            .eq('formation_id', req.params.id);
 
-            if (lessonsData) {
-                lessons = lessonsData;
-            }
-        }
-
-        const formattedFormation = {
-            id: formation.id,
-            title: formation.titre,
-            category_name: formation.categorie,
-            level: formation.niveau,
-            description: formation.description,
-            image: formation.image,
-            lessons_count: lessons.length || formation.nombre_lecons,
-            duration: formation.duree_totale,
-            created_at: formation.created_at
-        };
-
-        res.json({
-            formation: formattedFormation,
-            lessons: lessons
+        res.json({ 
+            formation: formation, 
+            lessons: lessons || [], 
+            quizzes: quizzes || [] 
         });
     } catch (err) {
         console.error('ERREUR formation detail:', err);

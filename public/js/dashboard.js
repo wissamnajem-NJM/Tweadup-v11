@@ -3,12 +3,19 @@ async function loadDashboard() {
     const user = getUser();
     if (!user) return;
 
-    document.getElementById('welcomeName').textContent = user.first_name || 'Utilisateur';
-
+    // Load stats
     await loadStats();
+
+    // Load continue learning
     await loadContinueLearning();
+
+    // Load my formations
     await loadMyFormations();
+
+    // Load certificates
     await loadCertificates();
+
+    // Load recommended
     await loadRecommended();
 }
 
@@ -16,17 +23,27 @@ async function loadStats() {
     const progress = await apiFetch('/progress/my');
     const certificates = await apiFetch('/certificates/my');
 
+    let formationsCount = 0;
+    let completedCount = 0;
+    let certificatesCount = 0;
+
     if (progress && progress.progress) {
-        document.getElementById('statFormations').textContent = progress.progress.length;
-        const completed = progress.progress.filter(p => p.progress_percent === 100 || p.progress === 100).length;
-        document.getElementById('statCompleted').textContent = completed;
+        formationsCount = progress.progress.length;
+        completedCount = progress.progress.filter(p => (p.progress_percent || p.progress || 0) === 100).length;
     }
 
     if (certificates && certificates.certificates) {
-        document.getElementById('statCertificates').textContent = certificates.certificates.length;
+        certificatesCount = certificates.certificates.length;
     }
 
-    document.getElementById('statHours').textContent = '0h';
+    document.getElementById('statFormations').textContent = formationsCount;
+    document.getElementById('statCompleted').textContent = completedCount;
+    document.getElementById('statCertificates').textContent = certificatesCount;
+    
+    // Calculer les heures (approximatif : 1 leçon = 15 min en moyenne)
+    const totalLessons = progress?.progress?.reduce((acc, p) => acc + (p.completed_lessons || 0), 0) || 0;
+    const hours = Math.round(totalLessons * 15 / 60);
+    document.getElementById('statHours').textContent = hours + 'h';
 }
 
 async function loadContinueLearning() {
@@ -40,8 +57,8 @@ async function loadContinueLearning() {
     }
 
     const inProgress = progress.progress.filter(p => {
-        const pct = p.progress_percent || p.progress || 0;
-        return pct > 0 && pct < 100;
+        const prog = p.progress_percent || p.progress || 0;
+        return prog > 0 && prog < 100;
     });
 
     if (inProgress.length === 0) {
@@ -50,21 +67,26 @@ async function loadContinueLearning() {
     }
 
     section.style.display = 'block';
-    grid.innerHTML = inProgress.map(p => `
+    grid.innerHTML = inProgress.map(p => {
+        const title = p.formation_title || p.titre || p.title || 'Formation';
+        const image = p.formation_image || p.image || 'https://via.placeholder.com/80';
+        const prog = p.progress_percent || p.progress || 0;
+        
+        return `
         <div class="continue-card" onclick="window.location.href='/formation/${p.formation_id}'">
-            <img src="${p.formation_image || p.image_url || 'https://via.placeholder.com/80'}" alt="${p.formation_title || 'Formation'}">
+            <img src="${image}" alt="${title}">
             <div class="continue-info">
-                <h3>${p.formation_title || 'Formation'}</h3>
+                <h3>${title}</h3>
                 <p>Continuez où vous vous êtes arrêté</p>
                 <div class="formation-progress">
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${p.progress_percent || p.progress || 0}%"></div>
+                        <div class="progress-fill" style="width: ${prog}%"></div>
                     </div>
-                    <span class="progress-text">${p.progress_percent || p.progress || 0}% complété</span>
+                    <span class="progress-text">${prog}% complété</span>
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function loadMyFormations() {
@@ -78,22 +100,27 @@ async function loadMyFormations() {
     }
 
     section.style.display = 'block';
-    grid.innerHTML = progress.progress.map(p => `
+    grid.innerHTML = progress.progress.map(p => {
+        const title = p.formation_title || p.titre || p.title || 'Formation';
+        const image = p.formation_image || p.image || 'https://via.placeholder.com/300x180';
+        const prog = p.progress_percent || p.progress || 0;
+        
+        return `
         <div class="formation-card" onclick="window.location.href='/formation/${p.formation_id}'">
             <div class="formation-image">
-                <img src="${p.formation_image || p.image_url || 'https://via.placeholder.com/300x180'}" alt="${p.formation_title || 'Formation'}">
+                <img src="${image}" alt="${title}">
             </div>
             <div class="formation-content">
-                <div class="formation-title">${p.formation_title || 'Formation'}</div>
+                <div class="formation-title">${title}</div>
                 <div class="formation-progress">
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${p.progress_percent || p.progress || 0}%"></div>
+                        <div class="progress-fill" style="width: ${prog}%"></div>
                     </div>
-                    <span class="progress-text">${p.progress_percent || p.progress || 0}% complété</span>
+                    <span class="progress-text">${prog}% complété</span>
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function loadCertificates() {
@@ -107,16 +134,18 @@ async function loadCertificates() {
     }
 
     section.style.display = 'block';
-    grid.innerHTML = certificates.certificates.map(c => `
+    grid.innerHTML = certificates.certificates.map(c => {
+        const title = c.formation_title || c.titre || c.title || 'Formation';
+        return `
         <div class="certificate-card" onclick="window.location.href='/certificate/${c.formation_id}'">
             <i class="fas fa-award"></i>
-            <h3>${c.formation_title || 'Certificat'}</h3>
+            <h3>${title}</h3>
             <p>Obtenu le ${new Date(c.issued_at).toLocaleDateString('fr-FR')}</p>
             <button class="btn btn-sm btn-outline" style="color: white; border-color: rgba(255,255,255,0.3);">
                 <i class="fas fa-download"></i> Télécharger
             </button>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function loadRecommended() {
@@ -130,16 +159,21 @@ async function loadRecommended() {
 
     const recommended = formations.formations.slice(0, 3);
 
-    grid.innerHTML = recommended.map(f => `
+    grid.innerHTML = recommended.map(f => {
+        const title = f.titre || f.title || f.name || 'Formation';
+        const desc = f.description || f.short_description || '';
+        const image = f.image || f.image_url || 'https://via.placeholder.com/300x180';
+        
+        return `
         <div class="formation-card" onclick="window.location.href='/formation/${f.id}'">
             <div class="formation-image">
-                <img src="${f.image_url || f.image || 'https://via.placeholder.com/300x180'}" alt="${f.title}">
-                <span class="formation-badge" style="background: #6366f1;">${f.category || 'Formation'}</span>
+                <img src="${image}" alt="${title}">
+                <span class="formation-badge" style="background: ${f.category_color || '#6366f1'};">${f.category_name || 'Formation'}</span>
             </div>
             <div class="formation-content">
-                <div class="formation-category">${f.category || 'Formation'}</div>
-                <div class="formation-title">${f.title}</div>
-                <div class="formation-desc">${f.description || ''}</div>
+                <div class="formation-category">${f.category_name || 'Formation'}</div>
+                <div class="formation-title">${title}</div>
+                <div class="formation-desc">${desc}</div>
                 <div class="formation-meta">
                     <div class="formation-stats">
                         <span><i class="fas fa-book"></i> ${f.lessons_count || 0} leçons</span>
@@ -148,7 +182,7 @@ async function loadRecommended() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 loadDashboard();

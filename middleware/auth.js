@@ -1,9 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const verifyToken = (req, res, next) => {
-    // Accepter les deux formats de casse
-    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-    const token = authHeader?.split(' ')[1];
+    const token = req.headers['authorization']?.split(' ')[1];
 
     if (!token) {
         return res.status(401).json({ message: 'Acces refuse. Token manquant.' });
@@ -16,7 +14,7 @@ const verifyToken = (req, res, next) => {
         req.userRole = decoded.role_id;
         next();
     } catch (err) {
-        return res.status(403).json({ message: 'Token invalide ou expire.' });
+        return res.status(401).json({ message: 'Token invalide ou expire.' });
     }
 };
 

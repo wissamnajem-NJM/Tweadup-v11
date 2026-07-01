@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (err) {
                 console.error('Erreur:', err);
-                showToast('Erreur serveur. Verifiez que le serveur est demarre sur le port 3000.', 'error');
+                showToast('Erreur serveur. Verifiez que le serveur est demarre.', 'error');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (err) {
                 console.error('Erreur:', err);
-                showToast('Erreur serveur. Verifiez que le serveur est demarre sur le port 3000.', 'error');
+                showToast('Erreur serveur. Verifiez que le serveur est demarre.', 'error');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;

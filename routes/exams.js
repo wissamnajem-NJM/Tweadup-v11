@@ -1,28 +1,45 @@
 const express = require('express');
-const supabase = require('../config/supabase');
+const supabase = require('../config/db');
 const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// GET QCM d'une formation
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        const { data: quizzes } = await supabase
+        // D'abord trouver le module de cette formation
+        const { data: modules, error: modError } = await supabase
+            .from('modules')
+            .select('id')
+            .eq('formation_id', req.params.formationId)
+            .limit(1);
+
+        if (!modules || modules.length === 0) {
+            return res.status(404).json({ message: 'Aucun module trouve' });
+        }
+
+        const moduleId = modules[0].id;
+
+        const { data: quizzes, error: quizError } = await supabase
             .from('quizzes')
             .select('*')
-            .eq('formation_id', req.params.formationId);
+            .eq('module_id', moduleId)
+            .eq('is_published', true);
 
         if (!quizzes || quizzes.length === 0) {
-            return res.status(404).json({ message: 'Aucun examen' });
+            return res.status(404).json({ message: 'Aucun examen trouve' });
         }
 
         const quiz = quizzes[0];
 
-        const { data: questions } = await supabase
+        // Recuperer les questions
+        const { data: questions, error: qError } = await supabase
             .from('quiz_questions')
             .select('*')
             .eq('quiz_id', quiz.id)
             .order('sort_order', { ascending: true });
 
+        // Pour chaque question, recuperer ses reponses
         const questionsWithAnswers = await Promise.all(
             (questions || []).map(async (q) => {
                 const { data: answers } = await supabase
@@ -34,7 +51,10 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
                 return {
                     id: q.id,
                     question: q.question,
+                    question_type: q.question_type,
                     points: q.points || 1,
+                    sort_order: q.sort_order,
+                    explanation: q.explanation || '',
                     answers: (answers || []).map(a => ({
                         id: a.id,
                         text: a.answer_text,
@@ -44,37 +64,40 @@ router.get('/formation/:formationId', verifyToken, async (req, res) => {
             })
         );
 
-        res.json({
-            quiz: {
-                id: quiz.id,
-                title: quiz.title,
+        res.json({ 
+            quiz: { 
+                id: quiz.id, 
+                title: quiz.title, 
                 description: quiz.description,
                 passing_score: quiz.passing_score || 70,
                 time_limit: quiz.time_limit,
+                max_attempts: quiz.max_attempts || 3,
                 questions: questionsWithAnswers
             }
         });
     } catch (err) {
-        res.status(500).json({ message: 'Erreur' });
+        console.error('ERREUR examen:', err);
+        res.status(500).json({ message: 'Erreur serveur: ' + err.message });
     }
 });
 
+// POST soumettre un examen
 router.post('/submit', verifyToken, async (req, res) => {
+    const { quizId, answers, formationId } = req.body;
+
     try {
-        const { quizId, answers, formationId } = req.body;
-        
-        console.log('SUBMIT - answers:', answers);
-        console.log('SUBMIT - formationId:', formationId);
-
-        if (!answers || Object.keys(answers).length === 0) {
-            return res.status(400).json({ message: 'Aucune réponse' });
-        }
-
         let score = 0;
         let totalPoints = 0;
 
         for (const [questionId, selectedAnswerId] of Object.entries(answers)) {
-            totalPoints += 1;
+            const { data: questionData } = await supabase
+                .from('quiz_questions')
+                .select('points')
+                .eq('id', questionId)
+                .single();
+
+            const points = questionData?.points || 1;
+            totalPoints += points;
 
             const { data: correctAnswers } = await supabase
                 .from('quiz_answers')
@@ -82,61 +105,47 @@ router.post('/submit', verifyToken, async (req, res) => {
                 .eq('question_id', questionId)
                 .eq('is_correct', true);
 
-            if (correctAnswers && correctAnswers.length > 0) {
-                console.log('Q' + questionId + ': correct=' + correctAnswers[0].id + ' selected=' + selectedAnswerId);
-                if (correctAnswers[0].id == selectedAnswerId) {
-                    score += 1;
-                }
+            if (correctAnswers && correctAnswers.length > 0 && correctAnswers[0].id == selectedAnswerId) {
+                score += points;
             }
         }
 
         const percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
         const passed = percentage >= 70;
 
-        console.log('RESULT:', score, '/', totalPoints, '=', percentage, '% passed:', passed);
+        // Enregistrer la tentative
+        await supabase
+            .from('quiz_attempts')
+            .insert([{
+                user_id: req.userId,
+                quiz_id: quizId,
+                score: percentage,
+                passed: passed,
+                completed_at: new Date().toISOString()
+            }]);
 
-        // Sauvegarder la tentative
-        await supabase.from('quiz_attempts').insert({
-            user_id: req.userId,
-            quiz_id: quizId,
-            score: percentage,
-            completed_at: new Date().toISOString()
-        });
-
-        // Créer le certificat si réussi
+        // Si reussi, generer certificat
         if (passed) {
-            const { data: existing } = await supabase
+            await supabase
                 .from('certificates')
-                .select('*')
-                .eq('user_id', req.userId)
-                .eq('formation_id', formationId)
-                .single();
-
-            if (existing) {
-                await supabase.from('certificates').update({
-                    quiz_score: percentage,
-                    issued_at: new Date().toISOString()
-                }).eq('user_id', req.userId).eq('formation_id', formationId);
-            } else {
-                await supabase.from('certificates').insert({
+                .upsert([{
                     user_id: req.userId,
                     formation_id: formationId,
-                    quiz_score: percentage,
-                    issued_at: new Date().toISOString()
-                });
-            }
+                    issued_at: new Date().toISOString(),
+                    status: 'issued'
+                }], { onConflict: 'user_id,formation_id' });
         }
 
         res.json({
-            score: score,
-            totalPoints: totalPoints,
-            percentage: percentage,
-            passed: passed,
-            message: passed ? 'Félicitations !' : 'Réessayez !'
+            score,
+            totalPoints,
+            percentage,
+            passed,
+            message: passed ? 'Felicitations ! Vous avez reussi l examen !' : 'Vous n avez pas atteint la note minimale (70%). Reessayez !'
         });
     } catch (err) {
-        console.error('ERREUR:', err);
-        res.status(500).json({ message: 'Erreur' });
+        console.error('ERREUR soumission examen:', err);
+        res.status(500).json({ message: 'Erreur serveur: ' + err.message });
     }
 });
 
