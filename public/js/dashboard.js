@@ -29,7 +29,7 @@ async function loadStats() {
 
     if (progress && progress.progress) {
         formationsCount = progress.progress.length;
-        completedCount = progress.progress.filter(p => (p.progress_percent || p.progress || 0) === 100).length;
+        completedCount = progress.progress.filter(p => (p.progress_percent || 0) === 100).length;
     }
 
     if (certificates && certificates.certificates) {
@@ -57,7 +57,7 @@ async function loadContinueLearning() {
     }
 
     const inProgress = progress.progress.filter(p => {
-        const prog = p.progress_percent || p.progress || 0;
+        const prog = p.progress_percent || 0;
         return prog > 0 && prog < 100;
     });
 
@@ -69,8 +69,8 @@ async function loadContinueLearning() {
     section.style.display = 'block';
     grid.innerHTML = inProgress.map(p => {
         const title = p.formation_title || p.titre || p.title || 'Formation';
-        const image = p.formation_image || p.image || 'https://via.placeholder.com/80';
-        const prog = p.progress_percent || p.progress || 0;
+        const image = p.formation_image || p.image || 'https://via.placeholder.com/80/6366f1/ffffff?text=' + encodeURIComponent(title);
+        const prog = p.progress_percent || 0;
         
         return `
         <div class="continue-card" onclick="window.location.href='/formation/${p.formation_id}'">
@@ -102,8 +102,8 @@ async function loadMyFormations() {
     section.style.display = 'block';
     grid.innerHTML = progress.progress.map(p => {
         const title = p.formation_title || p.titre || p.title || 'Formation';
-        const image = p.formation_image || p.image || 'https://via.placeholder.com/300x180';
-        const prog = p.progress_percent || p.progress || 0;
+        const image = p.formation_image || p.image || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(title);
+        const prog = p.progress_percent || 0;
         
         return `
         <div class="formation-card" onclick="window.location.href='/formation/${p.formation_id}'">
@@ -162,7 +162,7 @@ async function loadRecommended() {
     grid.innerHTML = recommended.map(f => {
         const title = f.titre || f.title || f.name || 'Formation';
         const desc = f.description || f.short_description || '';
-        const image = f.image || f.image_url || 'https://via.placeholder.com/300x180';
+        const image = f.image || f.image_url || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(title);
         
         return `
         <div class="formation-card" onclick="window.location.href='/formation/${f.id}'">

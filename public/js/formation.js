@@ -19,6 +19,9 @@ async function loadFormation() {
         const title = formation.titre || formation.title || formation.name || 'Formation';
         const description = formation.description || formation.resume || 'Aucune description disponible.';
         const image = formation.image || formation.image_url || 'https://via.placeholder.com/1200x350/6366f1/ffffff?text=' + encodeURIComponent(title);
+        const duration = formation.duration || 'N/A';
+        const level = formation.level || 'Tous niveaux';
+        const hasCertificate = formation.certificate_enabled !== false; // Par défaut true
 
         // 2. Charger la progression (si connecté)
         let progressData = null;
@@ -46,7 +49,7 @@ async function loadFormation() {
                 <img src="${image}" alt="${title}">
                 <div class="formation-hero-overlay">
                     <h1>${title}</h1>
-                    <p>${formation.category_name || 'Formation'} • ${lessons.length} lecons • ${formation.level || 'Tous niveaux'}</p>
+                    <p>${formation.category_name || 'Formation'} • ${lessons.length} lecons • ${level}</p>
                 </div>
             </div>
             <div class="formation-detail-content">
@@ -82,6 +85,8 @@ async function loadFormation() {
                         ${lessons.map((lesson, index) => {
                             const lessonTitle = lesson.titre || lesson.title || lesson.name || `Leçon ${index + 1}`;
                             const isCompleted = completedLessons.includes(lesson.id);
+                            
+                            // Si pas inscrit et connecté, les leçons sont verrouillées
                             const isLocked = !isEnrolled && isLoggedIn();
                             
                             return `
@@ -161,15 +166,15 @@ async function loadFormation() {
                         </div>
                         <div class="sidebar-stat">
                             <span><i class="fas fa-clock"></i> Duree</span>
-                            <span>${formation.duration || 'N/A'}</span>
+                            <span>${duration}</span>
                         </div>
                         <div class="sidebar-stat">
                             <span><i class="fas fa-signal"></i> Niveau</span>
-                            <span>${formation.level || 'Tous niveaux'}</span>
+                            <span>${level}</span>
                         </div>
                         <div class="sidebar-stat">
                             <span><i class="fas fa-certificate"></i> Certificat</span>
-                            <span>${formation.certificate_enabled ? 'Oui' : 'Non'}</span>
+                            <span>${hasCertificate ? 'Oui' : 'Non'}</span>
                         </div>
                     </div>
                 </div>

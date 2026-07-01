@@ -33,11 +33,12 @@ function displayFormations(formations) {
         const title = f.titre || f.title || f.name || 'Sans titre';
         const desc = f.short_description || f.description || f.resume || '';
         const image = f.image || f.image_url || 'https://via.placeholder.com/300x180/6366f1/ffffff?text=' + encodeURIComponent(title);
+        const lessonsCount = f.lessons_count !== undefined ? f.lessons_count : (f.lessons?.length || 0);
         
         return `
         <div class="formation-card" onclick="window.location.href='/formation/${f.id}'">
             <div class="formation-image">
-                <img src="${image}" alt="${title}">
+                <img src="${image}" alt="${title}" onerror="this.src='https://via.placeholder.com/300x180/6366f1/ffffff?text=${encodeURIComponent(title)}'">
                 <span class="formation-badge" style="background: ${f.category_color || '#6366f1'};">${f.category_name || 'Formation'}</span>
             </div>
             <div class="formation-content">
@@ -46,7 +47,7 @@ function displayFormations(formations) {
                 <div class="formation-desc">${desc}</div>
                 <div class="formation-meta">
                     <div class="formation-stats">
-                        <span><i class="fas fa-book"></i> ${f.lessons_count || 0} lecons</span>
+                        <span><i class="fas fa-book"></i> ${lessonsCount} lecons</span>
                         <span><i class="fas fa-users"></i> ${f.enrollments_count || 0}</span>
                         <span><i class="fas fa-signal"></i> ${f.level || 'Tous niveaux'}</span>
                     </div>

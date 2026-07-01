@@ -19,15 +19,23 @@ router.get('/', async (req, res) => {
         // Pour chaque formation, compter les lecons et inscriptions
         const formationsWithCounts = await Promise.all(
             (formations || []).map(async (formation) => {
-                const { count: lessonsCount } = await supabase
+                const { count: lessonsCount, error: lessonsError } = await supabase
                     .from('lessons')
                     .select('*', { count: 'exact', head: true })
                     .eq('formation_id', formation.id);
 
-                const { count: enrollCount } = await supabase
+                if (lessonsError) {
+                    console.error('Erreur comptage lecons:', lessonsError);
+                }
+
+                const { count: enrollCount, error: enrollError } = await supabase
                     .from('enrollments')
                     .select('*', { count: 'exact', head: true })
                     .eq('formation_id', formation.id);
+
+                if (enrollError) {
+                    console.error('Erreur comptage inscriptions:', enrollError);
+                }
 
                 return {
                     ...formation,
@@ -63,10 +71,18 @@ router.get('/:id', async (req, res) => {
             .eq('formation_id', req.params.id)
             .order('sort_order', { ascending: true });
 
+        if (lessonsError) {
+            console.error('Erreur chargement lecons:', lessonsError);
+        }
+
         const { data: quizzes, error: quizzesError } = await supabase
             .from('quizzes')
             .select('*')
             .eq('formation_id', req.params.id);
+
+        if (quizzesError) {
+            console.error('Erreur chargement quizzes:', quizzesError);
+        }
 
         res.json({ 
             formation: formation, 

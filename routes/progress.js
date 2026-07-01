@@ -88,7 +88,7 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
             .eq('is_completed', true);
 
         const progressPercent = totalLessons > 0 
-            ? Math.round((completedLessons / totalLessons) * 100) 
+            ? Math.min(Math.round((completedLessons / totalLessons) * 100), 100)  // LIMITE A 100% MAX
             : 0;
 
         // Mettre a jour la progression
@@ -128,6 +128,12 @@ router.post('/enroll', verifyToken, async (req, res) => {
             return res.json({ message: 'Vous etes deja inscrit.', alreadyEnrolled: true });
         }
 
+        // Compter le nombre total de lecons pour cette formation
+        const { count: totalLessons } = await supabase
+            .from('lessons')
+            .select('*', { count: 'exact', head: true })
+            .eq('formation_id', formationId);
+
         await supabase
             .from('enrollments')
             .insert([{
@@ -139,7 +145,7 @@ router.post('/enroll', verifyToken, async (req, res) => {
                 last_accessed_at: new Date().toISOString(),
                 started_at: new Date().toISOString(),
                 completed_lessons: 0,
-                total_lessons: 0,
+                total_lessons: totalLessons || 0,
                 total_time_spent: 0
             }]);
 
@@ -168,14 +174,17 @@ router.get('/my', verifyToken, async (req, res) => {
             (progress || []).map(async (p) => {
                 const { data: formation } = await supabase
                     .from('formations')
-                    .select('titre, title, image')
+                    .select('titre, title, image, duration, level, certificate_enabled')
                     .eq('id', p.formation_id)
                     .single();
 
                 return {
                     ...p,
                     formation_title: formation?.titre || formation?.title || 'Formation',
-                    formation_image: formation?.image || null
+                    formation_image: formation?.image || null,
+                    duration: formation?.duration || 'N/A',
+                    level: formation?.level || 'Tous niveaux',
+                    certificate_enabled: formation?.certificate_enabled || false
                 };
             })
         );
