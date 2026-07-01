@@ -202,19 +202,36 @@ async function enrollFormation(formationId) {
         return;
     }
 
-    const result = await apiFetch('/progress/enroll', {
-        method: 'POST',
-        body: JSON.stringify({ formationId: formationId })
-    });
+    const btn = document.querySelector('.btn-primary[onclick^="enrollFormation"]');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Inscription...';
+        btn.disabled = true;
+    }
 
-    if (result) {
-        showToast('Inscription reussie !', 'success');
-        // RAFRAÎCHIR LA PAGE pour voir les leçons déverrouillées
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
-    } else {
-        showToast('Erreur inscription', 'error');
+    try {
+        const result = await apiFetch('/progress/enroll', {
+            method: 'POST',
+            body: JSON.stringify({ formationId: formationId })
+        });
+
+        if (result) {
+            showToast('Inscription reussie !', 'success');
+            // Forcer le rechargement complet avec cache-buster
+            window.location.href = window.location.pathname + '?v=' + Date.now();
+        } else {
+            showToast('Erreur inscription', 'error');
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-user-plus"></i> S\'inscrire';
+                btn.disabled = false;
+            }
+        }
+    } catch (err) {
+        console.error('Erreur inscription:', err);
+        showToast('Erreur serveur', 'error');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-user-plus"></i> S\'inscrire';
+            btn.disabled = false;
+        }
     }
 }
 
