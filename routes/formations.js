@@ -19,20 +19,22 @@ router.get('/', async (req, res) => {
         // Pour chaque formation, compter les lecons et inscriptions
         const formationsWithCounts = await Promise.all(
             (formations || []).map(async (formation) => {
-                const { count: lessonsCount } = await supabase
-                    .from('lessons')
+                const { count: leconsCount } = await supabase
+                    .from('lecons')
                     .select('*', { count: 'exact', head: true })
                     .eq('formation_id', formation.id);
 
-                const { count: enrollCount } = await supabase
-                    .from('enrollments')
+                const { count: inscriptionsCount } = await supabase
+                    .from('inscriptions')
                     .select('*', { count: 'exact', head: true })
                     .eq('formation_id', formation.id);
 
                 return {
                     ...formation,
-                    lessons_count: lessonsCount || 0,
-                    enrollments_count: enrollCount || 0
+                    lessons_count: leconsCount || 0,
+                    lecons_count: leconsCount || 0,
+                    enrollments_count: inscriptionsCount || 0,
+                    inscriptions_count: inscriptionsCount || 0
                 };
             })
         );
@@ -57,8 +59,8 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ message: 'Formation non trouvee' });
         }
 
-        const { data: lessons, error: lessonsError } = await supabase
-            .from('lessons')
+        const { data: lecons, error: leconsError } = await supabase
+            .from('lecons')
             .select('*')
             .eq('formation_id', req.params.id)
             .order('sort_order', { ascending: true });
@@ -70,7 +72,8 @@ router.get('/:id', async (req, res) => {
 
         res.json({ 
             formation: formation, 
-            lessons: lessons || [], 
+            lessons: lecons || [], 
+            lecons: lecons || [],
             quizzes: quizzes || [] 
         });
     } catch (err) {

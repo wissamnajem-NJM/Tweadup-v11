@@ -10,28 +10,24 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
         const { formationId } = req.body;
 
         // Verifier si l'inscription existe
-        let { data: enrollment } = await supabase
-            .from('enrollments')
+        let { data: inscription } = await supabase
+            .from('inscriptions')
             .select('*')
-            .eq('user_id', req.userId)
+            .eq('utilisateur_id', req.userId)
             .eq('formation_id', formationId)
             .single();
 
-        let enrollmentId;
-        if (!enrollment) {
-            const { data: newEnrollment, error: insertError } = await supabase
-                .from('enrollments')
+        let inscriptionId;
+        if (!inscription) {
+            const { data: newInscription, error: insertError } = await supabase
+                .from('inscriptions')
                 .insert([{
-                    user_id: req.userId,
+                    utilisateur_id: req.userId,
                     formation_id: formationId,
-                    progress_percent: 0,
-                    status: 'active',
+                    progression: 0,
+                    statut: 'active',
                     created_at: new Date().toISOString(),
-                    last_accessed_at: new Date().toISOString(),
-                    started_at: new Date().toISOString(),
-                    completed_lessons: 0,
-                    total_lessons: 0,
-                    total_time_spent: 0
+                    updated_at: new Date().toISOString()
                 }])
                 .select()
                 .single();
@@ -39,66 +35,62 @@ router.post('/lesson/:lessonId/complete', verifyToken, async (req, res) => {
             if (insertError) {
                 return res.status(500).json({ message: 'Erreur: ' + insertError.message });
             }
-            enrollmentId = newEnrollment.id;
-            enrollment = newEnrollment;
+            inscriptionId = newInscription.id;
+            inscription = newInscription;
         } else {
-            enrollmentId = enrollment.id;
+            inscriptionId = inscription.id;
         }
 
         // Verifier si la lecon est deja terminee
         const { data: existing } = await supabase
-            .from('lesson_progress')
+            .from('lecons_vues')
             .select('*')
-            .eq('user_id', req.userId)
-            .eq('lesson_id', req.params.lessonId)
+            .eq('utilisateur_id', req.userId)
+            .eq('lecon_id', req.params.lessonId)
             .single();
 
         if (existing) {
-            return res.json({ message: 'Lecon deja terminee', progress: enrollment?.progress_percent || 0 });
+            return res.json({ message: 'Lecon deja terminee', progress: inscription?.progression || 0 });
         }
 
         // Marquer la lecon comme terminee
         await supabase
-            .from('lesson_progress')
+            .from('lecons_vues')
             .insert([{
-                user_id: req.userId,
-                lesson_id: req.params.lessonId,
+                utilisateur_id: req.userId,
+                lecon_id: req.params.lessonId,
                 formation_id: formationId,
-                enrollment_id: enrollmentId,
-                is_completed: true,
-                completed_at: new Date().toISOString(),
+                inscription_id: inscriptionId,
+                terminee: true,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                watch_time: 0,
-                last_position: 0
+                updated_at: new Date().toISOString()
             }]);
 
         // Calculer la progression
-        const { count: totalLessons } = await supabase
-            .from('lessons')
+        const { count: totalLecons } = await supabase
+            .from('lecons')
             .select('*', { count: 'exact', head: true })
             .eq('formation_id', formationId);
 
-        const { count: completedLessons } = await supabase
-            .from('lesson_progress')
+        const { count: completedLecons } = await supabase
+            .from('lecons_vues')
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', req.userId)
+            .eq('utilisateur_id', req.userId)
             .eq('formation_id', formationId)
-            .eq('is_completed', true);
+            .eq('terminee', true);
 
-        const progressPercent = totalLessons > 0 
-            ? Math.min(Math.round((completedLessons / totalLessons) * 100), 100)
+        const progressPercent = totalLecons > 0 
+            ? Math.min(Math.round((completedLecons / totalLecons) * 100), 100)
             : 0;
 
         // Mettre a jour la progression
         await supabase
-            .from('enrollments')
+            .from('inscriptions')
             .update({
-                progress_percent: progressPercent,
-                completed_lessons: completedLessons,
-                last_accessed_at: new Date().toISOString()
+                progression: progressPercent,
+                updated_at: new Date().toISOString()
             })
-            .eq('user_id', req.userId)
+            .eq('utilisateur_id', req.userId)
             .eq('formation_id', formationId);
 
         res.json({ 
@@ -117,9 +109,9 @@ router.post('/enroll', verifyToken, async (req, res) => {
 
     try {
         const { data: existing } = await supabase
-            .from('enrollments')
+            .from('inscriptions')
             .select('*')
-            .eq('user_id', req.userId)
+            .eq('utilisateur_id', req.userId)
             .eq('formation_id', formationId)
             .single();
 
@@ -128,18 +120,14 @@ router.post('/enroll', verifyToken, async (req, res) => {
         }
 
         await supabase
-            .from('enrollments')
+            .from('inscriptions')
             .insert([{
-                user_id: req.userId,
+                utilisateur_id: req.userId,
                 formation_id: formationId,
-                progress_percent: 0,
-                status: 'active',
+                progression: 0,
+                statut: 'active',
                 created_at: new Date().toISOString(),
-                last_accessed_at: new Date().toISOString(),
-                started_at: new Date().toISOString(),
-                completed_lessons: 0,
-                total_lessons: 0,
-                total_time_spent: 0
+                updated_at: new Date().toISOString()
             }]);
 
         res.json({ message: 'Inscription reussie !' });
@@ -153,9 +141,9 @@ router.post('/enroll', verifyToken, async (req, res) => {
 router.get('/my', verifyToken, async (req, res) => {
     try {
         const { data: progress, error } = await supabase
-            .from('enrollments')
+            .from('inscriptions')
             .select('*')
-            .eq('user_id', req.userId);
+            .eq('utilisateur_id', req.userId);
 
         if (error) {
             console.error('ERREUR progression:', error);
@@ -167,7 +155,7 @@ router.get('/my', verifyToken, async (req, res) => {
             (progress || []).map(async (p) => {
                 const { data: formation } = await supabase
                     .from('formations')
-                    .select('titre, title, image, duration, level, certificate_enabled')
+                    .select('titre, title, image, duree, niveau, certificat_active')
                     .eq('id', p.formation_id)
                     .single();
 
@@ -175,9 +163,11 @@ router.get('/my', verifyToken, async (req, res) => {
                     ...p,
                     formation_title: formation?.titre || formation?.title || 'Formation',
                     formation_image: formation?.image || null,
-                    duration: formation?.duration || 'N/A',
-                    level: formation?.level || 'Tous niveaux',
-                    certificate_enabled: formation?.certificate_enabled || false
+                    duration: formation?.duree || 'N/A',
+                    level: formation?.niveau || 'Tous niveaux',
+                    certificate_enabled: formation?.certificat_active || false,
+                    progress: p.progression || 0,
+                    progress_percent: p.progression || 0
                 };
             })
         );
@@ -192,22 +182,24 @@ router.get('/my', verifyToken, async (req, res) => {
 // GET progression d'une formation specifique
 router.get('/formation/:formationId', verifyToken, async (req, res) => {
     try {
-        const { data: progress } = await supabase
-            .from('enrollments')
+        const { data: inscription } = await supabase
+            .from('inscriptions')
             .select('*')
-            .eq('user_id', req.userId)
+            .eq('utilisateur_id', req.userId)
             .eq('formation_id', req.params.formationId)
             .single();
 
-        const { data: lessonProgress } = await supabase
-            .from('lesson_progress')
+        const { data: leconsVues } = await supabase
+            .from('lecons_vues')
             .select('*')
-            .eq('user_id', req.userId)
+            .eq('utilisateur_id', req.userId)
             .eq('formation_id', req.params.formationId);
 
         res.json({ 
-            enrollment: progress || null, 
-            lessonProgress: lessonProgress || [] 
+            enrollment: inscription || null, 
+            inscription: inscription || null,
+            lessonProgress: leconsVues || [],
+            leconsVues: leconsVues || []
         });
     } catch (err) {
         console.error('ERREUR progression formation:', err);
